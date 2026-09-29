@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Français Pas à Pas — Objectif TEF Canada</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-inner">
+    <div class="brand">
+      <div class="flag" aria-hidden="true"><span class="blue"></span><span class="white"></span><span class="red"></span></div>
+      <div class="brand-text">
+        <h1>Français Pas à Pas</h1>
+        <p>Objectif TEF Canada · from zero to exam-ready</p>
+      </div>
+    </div>
+    <div class="header-controls">
+      <button id="rateToggle" class="pill-btn" title="Toggle slow pronunciation">🐢 Slow: off</button>
+      <div class="progress-wrap">
+        <span id="progressText" class="progress-label">0 / 10 units</span>
+        <div class="progress-bar"><div id="progressFill"></div></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main id="app"></main>
+
+<footer class="app-footer">
+  <p>🔒 Private &amp; local — this app runs entirely on your computer. No accounts, no tracking, no internet needed after opening.</p>
+</footer>
+
+<script src="course.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
