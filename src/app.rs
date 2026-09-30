@@ -484,24 +484,27 @@ impl FrenchApp {
         let mut import = false;
         ui.horizontal(|ui| {
             if !matches!(self.page, Page::Home) {
-                let label = if matches!(self.page, Page::Journey) {
-                    "‹  Overview"
+                let accessibility_label = if matches!(self.page, Page::Journey) {
+                    "Back to overview"
                 } else {
-                    "‹  All lessons"
+                    "Back to lessons"
                 };
-                if ui.add(action_button(label, false)).clicked() {
+                if ui
+                    .add(icon_action_button("‹", accessibility_label, false))
+                    .clicked()
+                {
                     go_home = true;
                 }
             }
             ui.add_space(2.0);
-            let (logo_rect, _) = ui.allocate_exact_size(Vec2::splat(38.0), Sense::hover());
+            let (logo_rect, _) = ui.allocate_exact_size(Vec2::splat(36.0), Sense::hover());
             ui.painter()
-                .rect_filled(logo_rect, CornerRadius::same(12), NAVY);
+                .rect_filled(logo_rect, CornerRadius::same(11), BRAND);
             ui.painter().text(
                 logo_rect.center(),
                 Align2::CENTER_CENTER,
                 "F",
-                FontId::proportional(20.0),
+                FontId::proportional(18.0),
                 WHITE,
             );
             ui.vertical(|ui| {
@@ -512,11 +515,10 @@ impl FrenchApp {
                     .split_once('—')
                     .map(|(title, _)| title.trim())
                     .unwrap_or(&self.course.meta.title);
-                ui.label(RichText::new(short_title).size(16.0).strong().color(NAVY));
+                ui.label(RichText::new(short_title).size(15.0).strong().color(NAVY));
                 ui.label(
                     RichText::new(&self.course.meta.subtitle)
-                        .size(9.5)
-                        .strong()
+                        .size(10.0)
                         .color(MUTED),
                 );
             });
@@ -525,33 +527,28 @@ impl FrenchApp {
                 if ui
                     .add(action_button(
                         if self.slow_audio {
-                            "Slow audio · On"
+                            "♪  Slow audio · on"
                         } else {
-                            "Slow audio"
+                            "♪  Slow audio"
                         },
-                        false,
+                        self.slow_audio,
                     ))
                     .clicked()
                 {
                     toggle_slow = true;
                 }
                 if matches!(self.page, Page::Home)
-                    && ui.add(action_button("Import progress…", false)).clicked()
+                    && ui.add(action_button("Import backup", false)).clicked()
                 {
                     import = true;
                 }
-                ui.add_space(12.0);
+                ui.add_space(18.0);
                 ui.vertical(|ui| {
                     ui.horizontal(|ui| {
+                        ui.label(RichText::new("Progress").size(10.0).strong().color(MUTED));
                         ui.label(
-                            RichText::new("COURSE PROGRESS")
-                                .size(9.0)
-                                .strong()
-                                .color(MUTED),
-                        );
-                        ui.label(
-                            RichText::new(format!("{done} / {total}"))
-                                .size(11.0)
+                            RichText::new(format!("{done}/{total}"))
+                                .size(10.5)
                                 .strong()
                                 .color(NAVY),
                         );
@@ -563,8 +560,8 @@ impl FrenchApp {
                         } else {
                             done as f32 / total as f32
                         },
-                        7.0,
-                        142.0,
+                        5.0,
+                        112.0,
                         TEAL,
                     );
                 });
@@ -590,12 +587,14 @@ impl FrenchApp {
         let mut scroll_level = None;
         let mut open_next = None;
         ScrollArea::vertical().show(ui, |ui| {
+                    ui.add_space(10.0);
+                    sidebar_section_label(ui, "YOUR SPACE");
                     ui.add_space(8.0);
-                    ui.label(RichText::new("LEARNING PATH").size(10.0).strong().color(MUTED));
-                    ui.add_space(12.0);
-                    let response = ui.add_sized(
-                        [ui.available_width(), 42.0],
-                        nav_button("Overview", matches!(self.page, Page::Home)),
+                    let response = sidebar_nav_item(
+                        ui,
+                        "⌂",
+                        "Overview",
+                        matches!(self.page, Page::Home),
                     );
                     if matches!(self.page, Page::Home)
                         && self.pending_page_focus == Some(FocusTarget::HomeEntry)
@@ -606,13 +605,12 @@ impl FrenchApp {
                     if response.clicked() {
                         go_home = true;
                     }
-                    ui.add_space(7.0);
-                    let response = ui.add_sized(
-                        [ui.available_width(), 42.0],
-                        nav_button(
-                            "Records & achievements",
-                            matches!(self.page, Page::Journey),
-                        ),
+                    ui.add_space(4.0);
+                    let response = sidebar_nav_item(
+                        ui,
+                        "◷",
+                        "Learning record",
+                        matches!(self.page, Page::Journey),
                     );
                     if matches!(self.page, Page::Journey)
                         && self.pending_page_focus == Some(FocusTarget::JourneyEntry)
@@ -623,7 +621,9 @@ impl FrenchApp {
                     if response.clicked() {
                         open_journey = true;
                     }
-                    ui.add_space(14.0);
+                    ui.add_space(26.0);
+                    sidebar_section_label(ui, "COURSE LEVELS");
+                    ui.add_space(8.0);
                     for level in &self.course.meta.levels {
                         let units: Vec<(usize, &Unit)> = self
                             .course
@@ -637,18 +637,10 @@ impl FrenchApp {
                             .filter(|(_, unit)| self.progress.is_complete(&unit.id))
                             .count();
                         let active = matches!(self.page, Page::Lesson(index) if self.course.units.get(index).is_some_and(|unit| unit.level == level.n));
-                        let text = format!("Niveau {}    {} / {}", level.n, complete, units.len());
-                        if ui
-                            .add_sized(
-                                [ui.available_width(), 38.0],
-                                nav_button(&text, active),
-                            )
-                            .clicked()
-                        {
+                        if sidebar_level_item(ui, level, complete, units.len(), active).clicked() {
                             scroll_level = Some(level.n);
                         }
-                        ui.label(RichText::new(format!("{} · {}", level.cefr, level.title)).size(11.0).color(MUTED));
-                        ui.add_space(8.0);
+                        ui.add_space(3.0);
                     }
 
                     ui.with_layout(Layout::bottom_up(Align::Min), |ui| {
@@ -656,15 +648,14 @@ impl FrenchApp {
                         if let Some(index) = next {
                             let unit = &self.course.units[index];
                             Frame::new()
-                                .fill(PALE_BLUE)
-                                .stroke(Stroke::new(1.0, Color32::from_rgb(212, 225, 244)))
-                                .corner_radius(CornerRadius::same(16))
-                                .inner_margin(Margin::same(15))
+                                .fill(SIDEBAR_CARD)
+                                .corner_radius(CornerRadius::same(14))
+                                .inner_margin(Margin::same(14))
                                 .show(ui, |ui| {
-                                    ui.label(RichText::new(if done == 0 { "START HERE" } else { "PICK UP WHERE YOU LEFT OFF" }).size(9.0).strong().color(BLUE));
+                                    ui.label(RichText::new(if done == 0 { "START HERE" } else { "PICK UP WHERE YOU LEFT OFF" }).size(9.0).strong().color(SIDEBAR_ACCENT));
                                     ui.add_space(6.0);
-                                    ui.label(RichText::new(format!("Unit {}", index + 1)).size(12.0).strong().color(NAVY));
-                                    ui.label(RichText::new(&unit.title).size(13.0).strong().color(INK));
+                                    ui.label(RichText::new(format!("UNIT {:02}", index + 1)).size(9.0).strong().color(SIDEBAR_TEXT));
+                                    ui.label(RichText::new(&unit.title).size(13.0).strong().color(WHITE));
                                     ui.add_space(8.0);
                                     if ui.add_sized([ui.available_width(), 42.0], action_button("Continue lesson  →", true)).clicked() {
                                         open_next = Some(index);
@@ -672,12 +663,12 @@ impl FrenchApp {
                                 });
                         } else {
                             Frame::new()
-                                .fill(PALE_GREEN)
-                                .corner_radius(CornerRadius::same(16))
+                                .fill(SIDEBAR_CARD)
+                                .corner_radius(CornerRadius::same(14))
                                 .inner_margin(Margin::same(15))
                                 .show(ui, |ui| {
-                                    ui.label(RichText::new("COURSE COMPLETE").size(10.0).strong().color(GREEN));
-                                    ui.label(RichText::new(format!("Bravo! All {total} units finished.")).size(14.0).strong().color(NAVY));
+                                    ui.label(RichText::new("COURSE COMPLETE").size(10.0).strong().color(SIDEBAR_ACCENT));
+                                    ui.label(RichText::new(format!("Bravo! All {total} units finished.")).size(14.0).strong().color(WHITE));
                                 });
                         }
                     });
@@ -748,7 +739,7 @@ impl FrenchApp {
         ScrollArea::vertical()
             .id_salt("home-scroll")
             .show(ui, |ui| {
-                ui.add_space(24.0);
+                ui.add_space(14.0);
                 if let Some(index) = next_index {
                     let next = &course.units[index];
                     let (clicked, focused) =
@@ -822,8 +813,8 @@ impl FrenchApp {
                 ui.add_space(12.0);
                 Frame::new()
                     .fill(PALE_BLUE)
-                    .stroke(Stroke::new(1.0, Color32::from_rgb(212, 225, 244)))
-                    .corner_radius(CornerRadius::same(16))
+                    .stroke(Stroke::new(1.0, Color32::from_rgb(215, 224, 246)))
+                    .corner_radius(CornerRadius::same(14))
                     .inner_margin(Margin::same(16))
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
@@ -863,11 +854,11 @@ impl FrenchApp {
                         });
                     });
 
-                ui.add_space(30.0);
+                ui.add_space(20.0);
                 ui.horizontal(|ui| {
                     ui.label(
                         RichText::new("Your learning path")
-                            .size(23.0)
+                            .size(21.0)
                             .strong()
                             .color(NAVY),
                     );
@@ -969,7 +960,7 @@ impl FrenchApp {
                     }
                 });
 
-                ui.add_space(24.0);
+                ui.add_space(20.0);
                 Frame::new()
                     .fill(Color32::from_rgb(239, 237, 231))
                     .corner_radius(CornerRadius::same(14))
@@ -1083,11 +1074,11 @@ impl FrenchApp {
         ScrollArea::vertical()
             .id_salt("learning-record-scroll")
             .show(ui, |ui| {
-                ui.add_space(24.0);
+                ui.add_space(18.0);
                 let heading = ui.add(
                     Label::new(
                         RichText::new("Your learning record")
-                            .size(28.0)
+                            .size(25.0)
                             .strong()
                             .color(NAVY),
                     )
@@ -1108,16 +1099,17 @@ impl FrenchApp {
 
                 Frame::new()
                     .fill(NAVY)
-                    .corner_radius(CornerRadius::same(20))
-                    .inner_margin(Margin::same(22))
+                    .corner_radius(CornerRadius::same(17))
+                    .inner_margin(Margin::same(20))
                     .show(ui, |ui| {
+                        ui.take_available_width();
                         ui.horizontal(|ui| {
                             ui.vertical(|ui| {
                                 ui.label(
                                     RichText::new("KEEP YOUR RHYTHM")
                                         .size(9.0)
                                         .strong()
-                                        .color(Color32::from_rgb(173, 207, 246)),
+                                        .color(HERO_TINT),
                                 );
                                 ui.add_space(5.0);
                                 ui.label(
@@ -1135,21 +1127,21 @@ impl FrenchApp {
                                         "Personal best: {longest_streak} consecutive days  ·  Best quiz score: {best_score}%"
                                     ))
                                     .size(12.0)
-                                    .color(Color32::from_rgb(224, 231, 243)),
+                                    .color(HERO_TEXT),
                                 );
                             });
                             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                                 Frame::new()
-                                    .fill(Color32::from_rgb(47, 78, 96))
-                                    .corner_radius(CornerRadius::same(16))
-                                    .inner_margin(Margin::symmetric(20, 13))
+                                    .fill(SIDEBAR_CARD)
+                                    .corner_radius(CornerRadius::same(13))
+                                    .inner_margin(Margin::symmetric(17, 11))
                                     .show(ui, |ui| {
                                         ui.vertical_centered(|ui| {
                                             ui.label(
                                                 RichText::new(format!("{current_streak}"))
                                                     .size(30.0)
                                                     .strong()
-                                                    .color(Color32::from_rgb(144, 225, 206)),
+                                                    .color(SIDEBAR_ACCENT),
                                             );
                                             ui.label(
                                                 RichText::new("DAY STREAK")
@@ -1191,7 +1183,7 @@ impl FrenchApp {
                     );
                 });
 
-                ui.add_space(26.0);
+                ui.add_space(22.0);
                 section_heading(ui, "Your last 7 days", "A study day is recorded when you open a lesson".to_owned());
                 ui.add_space(10.0);
                 if recent_days.is_empty() {
@@ -1237,7 +1229,7 @@ impl FrenchApp {
                     });
                 }
 
-                ui.add_space(26.0);
+                ui.add_space(22.0);
                 section_heading(
                     ui,
                     "Milestones",
@@ -1250,7 +1242,7 @@ impl FrenchApp {
                     }
                 });
 
-                ui.add_space(26.0);
+                ui.add_space(22.0);
                 section_heading(
                     ui,
                     "Achievements",
@@ -1274,7 +1266,7 @@ impl FrenchApp {
                     .color(MUTED),
                 );
 
-                ui.add_space(26.0);
+                ui.add_space(22.0);
                 ui.columns(2, |columns| {
                     section_heading(
                         &mut columns[0],
@@ -1366,12 +1358,14 @@ impl FrenchApp {
                         let selected = self.lesson_tab == tab;
                         let button = Button::new(
                             RichText::new(tab.label())
-                                .size(13.0)
+                                .size(12.0)
                                 .strong()
                                 .color(if selected { WHITE } else { NAVY }),
                         )
-                        .fill(if selected { NAVY } else { WHITE })
-                        .min_size(Vec2::new(130.0, 44.0));
+                        .fill(if selected { BRAND } else { WHITE })
+                        .stroke(Stroke::new(1.0, if selected { BRAND } else { BORDER }))
+                        .corner_radius(CornerRadius::same(10))
+                        .min_size(Vec2::new(122.0, 39.0));
                         let response = ui.add(button);
                         if focus_lesson_entry && tab == LessonTab::Words {
                             response.request_focus();
@@ -1742,8 +1736,6 @@ impl FrenchApp {
 impl eframe::App for FrenchApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.refresh_today();
-        ui.style_mut().spacing.item_spacing = Vec2::new(10.0, 10.0);
-        ui.style_mut().spacing.button_padding = Vec2::new(15.0, 9.0);
         let ctx = ui.ctx().clone();
         Panel::top("app_header")
             .resizable(false)
@@ -1751,36 +1743,41 @@ impl eframe::App for FrenchApp {
                 Frame::new()
                     .fill(WHITE)
                     .stroke(Stroke::new(1.0, BORDER))
-                    .inner_margin(Margin::same(14)),
+                    .inner_margin(Margin::symmetric(22, 9)),
             )
             .show(ui, |ui| self.show_header(ui));
-        if ctx.content_rect().width() >= 980.0 {
+        if ctx.content_rect().width() >= 1040.0 {
             Panel::left("course_navigation")
-                .exact_size(250.0)
+                .exact_size(236.0)
                 .resizable(false)
                 .frame(
                     Frame::new()
-                        .fill(WHITE)
-                        .stroke(Stroke::new(1.0, BORDER))
-                        .inner_margin(Margin::same(18)),
+                        .fill(SIDEBAR)
+                        .stroke(Stroke::new(1.0, SIDEBAR_EDGE))
+                        .inner_margin(Margin::symmetric(14, 14)),
                 )
                 .show(ui, |ui| self.show_sidebar(ui));
         }
         egui::CentralPanel::default()
             .frame(Frame::new().fill(BACKGROUND).inner_margin(Margin::same(0)))
             .show(ui, |ui| {
-                ui.add_space(1.0);
-                if let Some((message, created, success)) = &self.notice {
-                    if self.notice_sticky || created.elapsed() < Duration::from_secs(5) {
-                        notice_bar(ui, message, *success);
-                        ctx.request_repaint_after(Duration::from_millis(200));
+                ui.with_layout(Layout::top_down(Align::Center), |ui| {
+                    let content_width = ui.available_width().min(CONTENT_MAX_WIDTH);
+                    ui.set_max_width(content_width);
+                    ui.add_space(14.0);
+                    if let Some((message, created, success)) = &self.notice {
+                        if self.notice_sticky || created.elapsed() < Duration::from_secs(5) {
+                            notice_bar(ui, message, *success);
+                            ui.add_space(10.0);
+                            ctx.request_repaint_after(Duration::from_millis(200));
+                        }
                     }
-                }
-                match self.page {
-                    Page::Home => self.show_home(ui, &ctx),
-                    Page::Journey => self.show_journey(ui),
-                    Page::Lesson(index) => self.show_lesson(ui, &ctx, index),
-                }
+                    match self.page {
+                        Page::Home => self.show_home(ui, &ctx),
+                        Page::Journey => self.show_journey(ui),
+                        Page::Lesson(index) => self.show_lesson(ui, &ctx, index),
+                    }
+                });
             });
         if self.notice.as_ref().is_some_and(|(_, created, _)| {
             !self.notice_sticky && created.elapsed() >= Duration::from_secs(5)
@@ -1823,10 +1820,10 @@ fn apply_theme(ctx: &egui::Context) {
     let mut visuals = egui::Visuals::light();
     visuals.panel_fill = BACKGROUND;
     visuals.window_fill = WHITE;
-    visuals.faint_bg_color = Color32::from_rgb(246, 247, 250);
+    visuals.faint_bg_color = PALE_SURFACE;
     visuals.extreme_bg_color = WHITE;
     visuals.hyperlink_color = BLUE;
-    visuals.selection.bg_fill = Color32::from_rgb(214, 232, 240);
+    visuals.selection.bg_fill = PALE_BLUE;
     visuals.widgets.noninteractive.bg_fill = WHITE;
     visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, INK);
     visuals.widgets.inactive.bg_fill = WHITE;
@@ -1836,10 +1833,16 @@ fn apply_theme(ctx: &egui::Context) {
     visuals.widgets.active.bg_fill = TEAL;
     visuals.widgets.active.fg_stroke = Stroke::new(1.0, WHITE);
     visuals.widgets.open.bg_fill = PALE_BLUE;
+    visuals.widgets.inactive.corner_radius = CornerRadius::same(10);
+    visuals.widgets.hovered.corner_radius = CornerRadius::same(10);
+    visuals.widgets.active.corner_radius = CornerRadius::same(10);
+    visuals.widgets.open.corner_radius = CornerRadius::same(10);
     ctx.set_visuals(visuals);
     ctx.style_mut_of(egui::Theme::Light, |style| {
-        style.spacing.interact_size = Vec2::new(44.0, 44.0);
-        style.visuals.window_corner_radius = CornerRadius::same(18);
+        style.spacing.interact_size = Vec2::new(40.0, 40.0);
+        style.spacing.item_spacing = Vec2::new(10.0, 10.0);
+        style.spacing.button_padding = Vec2::new(13.0, 8.0);
+        style.visuals.window_corner_radius = CornerRadius::same(14);
     });
 }
 
@@ -1855,95 +1858,114 @@ fn home_hero(
     let mut focused = false;
     Frame::new()
         .fill(NAVY)
-        .corner_radius(CornerRadius::same(22))
-        .inner_margin(Margin::same(24))
+        .corner_radius(CornerRadius::same(18))
+        .inner_margin(Margin::same(26))
         .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.vertical(|ui| {
-                    ui.label(
-                        RichText::new("TEF CANADA · YOUR STUDY PLAN")
-                            .size(10.0)
-                            .strong()
-                            .color(Color32::from_rgb(173, 207, 246)),
-                    );
-                    ui.add_space(6.0);
-                    ui.label(
-                        RichText::new(if done == 0 {
-                            "Bienvenue !"
-                        } else {
-                            "Bon retour !"
-                        })
-                        .size(30.0)
-                        .strong()
-                        .color(WHITE),
-                    );
-                    ui.label(
-                        RichText::new("Build your French, one confident step at a time.")
-                            .size(14.0)
-                            .color(Color32::from_rgb(224, 231, 243)),
-                    );
-                    ui.add_space(14.0);
-                    ui.horizontal(|ui| {
-                        number_dot(ui, unit_number, TEAL);
-                        ui.vertical(|ui| {
-                            ui.label(
-                                RichText::new(format!(
-                                    "{} · UNIT {unit_number}",
-                                    if done == 0 {
-                                        "START HERE"
-                                    } else {
-                                        "CONTINUE WITH"
-                                    }
-                                ))
-                                .size(9.0)
+            ui.take_available_width();
+            let content_width = ui.available_width();
+            let image_width = if image.is_some() {
+                (content_width * 0.29).clamp(220.0, 330.0)
+            } else {
+                0.0
+            };
+            let text_width = (content_width - image_width - ui.spacing().item_spacing.x).max(320.0);
+            ui.horizontal_top(|ui| {
+                ui.allocate_ui_with_layout(
+                    Vec2::new(text_width, 0.0),
+                    Layout::top_down(Align::Min),
+                    |ui| {
+                        ui.label(
+                            RichText::new("TEF CANADA · YOUR STUDY PLAN")
+                                .size(10.0)
                                 .strong()
-                                .color(Color32::from_rgb(173, 207, 246)),
-                            );
-                            ui.label(RichText::new(&next.title).size(16.0).strong().color(WHITE));
-                            ui.label(
-                                RichText::new(&next.title_fr)
-                                    .size(12.0)
-                                    .italics()
-                                    .color(Color32::from_rgb(224, 231, 243)),
-                            );
+                                .color(HERO_TINT),
+                        );
+                        ui.add_space(6.0);
+                        ui.label(
+                            RichText::new(if done == 0 {
+                                "Bienvenue !"
+                            } else {
+                                "Bon retour !"
+                            })
+                            .size(29.0)
+                            .strong()
+                            .color(WHITE),
+                        );
+                        ui.label(
+                            RichText::new("Build your French, one confident step at a time.")
+                                .size(13.0)
+                                .color(HERO_TEXT),
+                        );
+                        ui.add_space(14.0);
+                        ui.horizontal(|ui| {
+                            number_dot(ui, unit_number, TEAL);
+                            ui.vertical(|ui| {
+                                ui.label(
+                                    RichText::new(format!(
+                                        "{} · UNIT {unit_number}",
+                                        if done == 0 {
+                                            "START HERE"
+                                        } else {
+                                            "CONTINUE WITH"
+                                        }
+                                    ))
+                                    .size(9.0)
+                                    .strong()
+                                    .color(HERO_TINT),
+                                );
+                                ui.label(
+                                    RichText::new(&next.title).size(15.0).strong().color(WHITE),
+                                );
+                                ui.label(
+                                    RichText::new(&next.title_fr)
+                                        .size(12.0)
+                                        .italics()
+                                        .color(HERO_TEXT),
+                                );
+                            });
                         });
-                    });
-                    ui.add_space(12.0);
-                    let response = ui.add(action_button(
-                        if done == 0 {
-                            "Start learning  →"
-                        } else {
-                            "Continue lesson  →"
-                        },
-                        true,
-                    ));
-                    if focus_entry {
-                        response.request_focus();
-                        focused = true;
-                    }
-                    if response.clicked() {
-                        clicked = true;
-                    }
-                    ui.add_space(7.0);
-                    ui.label(
-                        RichText::new(format!(
-                            "Pass {PASS_SCORE}% on the quiz to unlock your next lesson."
-                        ))
-                        .size(11.0)
-                        .color(Color32::from_rgb(224, 231, 243)),
-                    );
-                });
+                        ui.add_space(12.0);
+                        let response = ui.add(action_button(
+                            if done == 0 {
+                                "Start learning  →"
+                            } else {
+                                "Continue lesson  →"
+                            },
+                            true,
+                        ));
+                        if focus_entry {
+                            response.request_focus();
+                            focused = true;
+                        }
+                        if response.clicked() {
+                            clicked = true;
+                        }
+                        ui.add_space(7.0);
+                        ui.label(
+                            RichText::new(format!(
+                                "Pass {PASS_SCORE}% on the quiz to unlock your next lesson."
+                            ))
+                            .size(10.5)
+                            .color(HERO_TEXT),
+                        );
+                    },
+                );
                 if let Some(image) = image {
-                    ui.add_space(12.0);
-                    let width = (ui.available_width() * 0.34).clamp(185.0, 280.0);
-                    let size = Vec2::new(width, width * 0.5);
-                    Frame::new()
-                        .fill(Color32::from_rgb(255, 246, 222))
-                        .corner_radius(CornerRadius::same(16))
-                        .inner_margin(Margin::same(4))
-                        .show(ui, |ui| {
-                            ui.add(Image::new((image.id(), size)).fit_to_exact_size(size));
-                        });
+                    let tile_size = Vec2::new(image_width, image_width * 0.62);
+                    let (tile_rect, _) = ui.allocate_exact_size(tile_size, Sense::hover());
+                    ui.painter()
+                        .rect_filled(tile_rect, CornerRadius::same(14), HERO_TILE);
+                    let art_width = image_width - 22.0;
+                    let art_rect = egui::Rect::from_center_size(
+                        tile_rect.center(),
+                        Vec2::new(art_width, art_width * 0.5),
+                    );
+                    ui.painter().image(
+                        image.id(),
+                        art_rect,
+                        egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                        WHITE,
+                    );
                 }
             });
         });
@@ -1953,15 +1975,16 @@ fn home_hero(
 fn completion_hero(ui: &mut egui::Ui, total: usize, focus_entry: bool) -> bool {
     let mut focused = false;
     Frame::new()
-        .fill(Color32::from_rgb(27, 58, 75))
-        .corner_radius(CornerRadius::same(22))
-        .inner_margin(Margin::same(28))
+        .fill(NAVY)
+        .corner_radius(CornerRadius::same(18))
+        .inner_margin(Margin::same(26))
         .show(ui, |ui| {
+            ui.take_available_width();
             ui.label(
                 RichText::new("COURSE COMPLETE")
                     .size(10.0)
                     .strong()
-                    .color(Color32::from_rgb(169, 221, 206)),
+                    .color(HERO_TINT),
             );
             ui.add_space(7.0);
             let response = ui.add(
@@ -2276,7 +2299,7 @@ fn lesson_intro(
 
 fn section_heading(ui: &mut egui::Ui, title: &str, detail: String) {
     ui.horizontal(|ui| {
-        ui.label(RichText::new(title).size(20.0).strong().color(NAVY));
+        ui.label(RichText::new(title).size(18.0).strong().color(NAVY));
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             ui.label(RichText::new(detail).size(11.0).color(MUTED));
         });
@@ -2869,31 +2892,244 @@ fn focus_result_button(
     }
 }
 
-fn action_button(label: &str, primary: bool) -> Button<'_> {
-    let button = Button::new(RichText::new(label).size(12.0).strong().color(if primary {
-        WHITE
-    } else {
-        NAVY
-    }))
-    .min_size(Vec2::new(124.0, 43.0))
-    .corner_radius(CornerRadius::same(12));
-    if primary {
-        button.fill(TEAL)
-    } else {
-        button.fill(Color32::from_rgb(245, 247, 250))
+struct ActionButton<'a> {
+    label: &'a str,
+    accessibility_label: &'a str,
+    primary: bool,
+    min_width: f32,
+}
+
+impl egui::Widget for ActionButton<'_> {
+    fn ui(self, ui: &mut egui::Ui) -> egui::Response {
+        let text_color = if self.primary { WHITE } else { NAVY };
+        let font = FontId::proportional(12.0);
+        let galley = ui
+            .painter()
+            .layout_no_wrap(self.label.to_owned(), font, text_color);
+        let width = if ui.layout().cross_justify() {
+            ui.available_width()
+        } else {
+            (galley.size().x + 30.0)
+                .max(self.min_width)
+                .min(ui.available_width())
+        };
+        let (rect, response) =
+            ui.allocate_exact_size(Vec2::new(width.max(1.0), 39.0), Sense::click());
+        let fill = if self.primary {
+            if response.is_pointer_button_down_on() {
+                TEAL_DOWN
+            } else if response.hovered() {
+                TEAL_HOVER
+            } else {
+                TEAL
+            }
+        } else if response.hovered() {
+            PALE_BLUE
+        } else {
+            PALE_SURFACE
+        };
+        ui.painter().rect_filled(rect, CornerRadius::same(10), fill);
+        if !self.primary {
+            ui.painter().rect_stroke(
+                rect,
+                CornerRadius::same(10),
+                Stroke::new(1.0, BORDER),
+                egui::StrokeKind::Inside,
+            );
+        }
+        if response.has_focus() {
+            ui.painter().rect_stroke(
+                rect.shrink(1.0),
+                CornerRadius::same(9),
+                Stroke::new(1.5, FOCUS_RING),
+                egui::StrokeKind::Inside,
+            );
+        }
+        ui.painter()
+            .galley(rect.center() - galley.size() * 0.5, galley, text_color);
+        response.widget_info(|| {
+            egui::WidgetInfo::labeled(egui::WidgetType::Button, true, self.accessibility_label)
+        });
+        response.on_hover_cursor(egui::CursorIcon::PointingHand)
     }
 }
 
-fn nav_button(label: &str, active: bool) -> Button<'_> {
-    Button::new(
-        RichText::new(label)
-            .size(12.0)
-            .strong()
-            .color(if active { NAVY } else { MUTED }),
-    )
-    .fill(if active { PALE_BLUE } else { WHITE })
-    .corner_radius(CornerRadius::same(10))
-    .stroke(Stroke::new(0.0, Color32::TRANSPARENT))
+fn action_button(label: &str, primary: bool) -> ActionButton<'_> {
+    ActionButton {
+        label,
+        accessibility_label: label,
+        primary,
+        min_width: 112.0,
+    }
+}
+
+fn icon_action_button<'a>(
+    label: &'a str,
+    accessibility_label: &'a str,
+    primary: bool,
+) -> ActionButton<'a> {
+    ActionButton {
+        label,
+        accessibility_label,
+        primary,
+        min_width: 38.0,
+    }
+}
+
+fn sidebar_section_label(ui: &mut egui::Ui, label: &str) {
+    ui.label(RichText::new(label).size(9.0).strong().color(SIDEBAR_MUTED));
+}
+
+fn sidebar_nav_item(ui: &mut egui::Ui, icon: &str, label: &str, active: bool) -> egui::Response {
+    let (rect, response) =
+        ui.allocate_exact_size(Vec2::new(ui.available_width(), 42.0), Sense::click());
+    let fill = if active {
+        SIDEBAR_ACTIVE
+    } else if response.hovered() {
+        SIDEBAR_HOVER
+    } else {
+        Color32::TRANSPARENT
+    };
+    if fill != Color32::TRANSPARENT {
+        ui.painter().rect_filled(rect, CornerRadius::same(9), fill);
+    }
+    if active {
+        ui.painter().rect_filled(
+            egui::Rect::from_min_size(rect.min, Vec2::new(3.0, rect.height())),
+            CornerRadius::same(2),
+            SIDEBAR_ACCENT,
+        );
+    }
+    if response.has_focus() {
+        ui.painter().rect_stroke(
+            rect.shrink(1.0),
+            CornerRadius::same(8),
+            Stroke::new(1.5, FOCUS_RING),
+            egui::StrokeKind::Inside,
+        );
+    }
+    let icon_color = if active {
+        SIDEBAR_ACCENT
+    } else {
+        SIDEBAR_MUTED
+    };
+    let text_color = if active { WHITE } else { SIDEBAR_TEXT };
+    ui.painter().text(
+        rect.min + Vec2::new(17.0, rect.height() * 0.5),
+        Align2::LEFT_CENTER,
+        icon,
+        FontId::proportional(16.0),
+        icon_color,
+    );
+    ui.painter().text(
+        rect.min + Vec2::new(45.0, rect.height() * 0.5),
+        Align2::LEFT_CENTER,
+        label,
+        FontId::proportional(12.0),
+        text_color,
+    );
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::Button, true, label.to_owned())
+    });
+    response.on_hover_cursor(egui::CursorIcon::PointingHand)
+}
+
+fn sidebar_level_item(
+    ui: &mut egui::Ui,
+    level: &Level,
+    complete: usize,
+    total: usize,
+    active: bool,
+) -> egui::Response {
+    let (rect, response) =
+        ui.allocate_exact_size(Vec2::new(ui.available_width(), 56.0), Sense::click());
+    let fill = if active {
+        SIDEBAR_ACTIVE
+    } else if response.hovered() {
+        SIDEBAR_HOVER
+    } else {
+        Color32::TRANSPARENT
+    };
+    if fill != Color32::TRANSPARENT {
+        ui.painter().rect_filled(rect, CornerRadius::same(9), fill);
+    }
+    let badge_rect =
+        egui::Rect::from_min_size(rect.min + Vec2::new(9.0, 12.0), Vec2::new(34.0, 25.0));
+    ui.painter().rect_filled(
+        badge_rect,
+        CornerRadius::same(7),
+        if active {
+            SIDEBAR_ACCENT
+        } else {
+            SIDEBAR_BADGE
+        },
+    );
+    ui.painter().text(
+        badge_rect.center(),
+        Align2::CENTER_CENTER,
+        level.cefr.split_whitespace().next().unwrap_or(&level.cefr),
+        FontId::proportional(10.0),
+        WHITE,
+    );
+    let label_color = if active { WHITE } else { SIDEBAR_TEXT };
+    let count_color = if active { HERO_TEXT } else { SIDEBAR_MUTED };
+    ui.painter().text(
+        rect.min + Vec2::new(52.0, 17.0),
+        Align2::LEFT_CENTER,
+        format!("Niveau {}", level.n),
+        FontId::proportional(10.5),
+        label_color,
+    );
+    ui.painter().text(
+        rect.min + Vec2::new(52.0, 34.0),
+        Align2::LEFT_CENTER,
+        &level.title,
+        FontId::proportional(9.5),
+        count_color,
+    );
+    ui.painter().text(
+        rect.right_top() + Vec2::new(-10.0, 17.0),
+        Align2::RIGHT_CENTER,
+        format!("{complete}/{total}"),
+        FontId::proportional(9.0),
+        count_color,
+    );
+    let track = egui::Rect::from_min_size(
+        rect.min + Vec2::new(12.0, 48.0),
+        Vec2::new((rect.width() - 24.0).max(1.0), 3.0),
+    );
+    ui.painter()
+        .rect_filled(track, CornerRadius::same(2), SIDEBAR_TRACK);
+    if total > 0 && complete > 0 {
+        let fill = egui::Rect::from_min_size(
+            track.min,
+            Vec2::new(
+                (track.width() * (complete as f32 / total as f32)).max(3.0),
+                track.height(),
+            ),
+        );
+        ui.painter()
+            .rect_filled(fill, CornerRadius::same(2), SIDEBAR_ACCENT);
+    }
+    if response.has_focus() {
+        ui.painter().rect_stroke(
+            rect.shrink(1.0),
+            CornerRadius::same(8),
+            Stroke::new(1.5, FOCUS_RING),
+            egui::StrokeKind::Inside,
+        );
+    }
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(
+            egui::WidgetType::Button,
+            true,
+            format!(
+                "Niveau {} · {} · {complete} sur {total}",
+                level.n, level.title
+            ),
+        )
+    });
+    response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
 fn number_dot(ui: &mut egui::Ui, number: usize, color: Color32) {
@@ -2966,15 +3202,34 @@ const fn color(hex: u32) -> Color32 {
     )
 }
 
-const BACKGROUND: Color32 = color(0xf4f2ec);
+const BACKGROUND: Color32 = color(0xf4f6fa);
+const PALE_SURFACE: Color32 = color(0xf7f8fb);
 const WHITE: Color32 = color(0xffffff);
-const NAVY: Color32 = color(0x1c2a4b);
-const INK: Color32 = color(0x313746);
-const MUTED: Color32 = color(0x697282);
-const BLUE: Color32 = color(0x316fbd);
-const TEAL: Color32 = color(0x188c82);
-const CORAL: Color32 = color(0xc55043);
-const GREEN: Color32 = color(0x287549);
-const BORDER: Color32 = color(0xe2e2de);
-const PALE_BLUE: Color32 = color(0xeaf1fb);
-const PALE_GREEN: Color32 = color(0xe8f5ec);
+const NAVY: Color32 = color(0x1a2740);
+const BRAND: Color32 = color(0x1e3154);
+const INK: Color32 = color(0x2c384b);
+const MUTED: Color32 = color(0x738095);
+const BLUE: Color32 = color(0x4b68c8);
+const TEAL: Color32 = color(0x138f83);
+const TEAL_HOVER: Color32 = color(0x159b8e);
+const TEAL_DOWN: Color32 = color(0x0d736b);
+const CORAL: Color32 = color(0xc85f54);
+const GREEN: Color32 = color(0x28795c);
+const BORDER: Color32 = color(0xe3e8f0);
+const PALE_BLUE: Color32 = color(0xeaf0ff);
+const PALE_GREEN: Color32 = color(0xe8f5ef);
+const HERO_TINT: Color32 = color(0xa9c4fa);
+const HERO_TEXT: Color32 = color(0xd8e0ef);
+const HERO_TILE: Color32 = color(0xf8ebd0);
+const FOCUS_RING: Color32 = color(0x7c9cff);
+const SIDEBAR: Color32 = color(0x172238);
+const SIDEBAR_EDGE: Color32 = color(0x26334a);
+const SIDEBAR_CARD: Color32 = color(0x22324c);
+const SIDEBAR_ACTIVE: Color32 = color(0x2a3b58);
+const SIDEBAR_HOVER: Color32 = color(0x202e45);
+const SIDEBAR_BADGE: Color32 = color(0x34415a);
+const SIDEBAR_TRACK: Color32 = color(0x34415a);
+const SIDEBAR_TEXT: Color32 = color(0xd2dae8);
+const SIDEBAR_MUTED: Color32 = color(0x93a2ba);
+const SIDEBAR_ACCENT: Color32 = color(0x63d1b4);
+const CONTENT_MAX_WIDTH: f32 = 1320.0;
