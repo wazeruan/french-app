@@ -499,7 +499,7 @@ impl FrenchApp {
             ui.add_space(2.0);
             let (logo_rect, _) = ui.allocate_exact_size(Vec2::splat(36.0), Sense::hover());
             ui.painter()
-                .rect_filled(logo_rect, CornerRadius::same(11), BRAND);
+                .rect_filled(logo_rect, CornerRadius::same(5), BRAND);
             ui.painter().text(
                 logo_rect.center(),
                 Align2::CENTER_CENTER,
@@ -518,7 +518,7 @@ impl FrenchApp {
                 ui.label(RichText::new(short_title).size(15.0).strong().color(NAVY));
                 ui.label(
                     RichText::new(&self.course.meta.subtitle)
-                        .size(10.0)
+                        .size(11.0)
                         .color(MUTED),
                 );
             });
@@ -545,10 +545,10 @@ impl FrenchApp {
                 ui.add_space(18.0);
                 ui.vertical(|ui| {
                     ui.horizontal(|ui| {
-                        ui.label(RichText::new("Progress").size(10.0).strong().color(MUTED));
+                        ui.label(RichText::new("Progress").size(11.0).strong().color(MUTED));
                         ui.label(
                             RichText::new(format!("{done}/{total}"))
-                                .size(10.5)
+                                .size(11.5)
                                 .strong()
                                 .color(NAVY),
                         );
@@ -649,12 +649,12 @@ impl FrenchApp {
                             let unit = &self.course.units[index];
                             Frame::new()
                                 .fill(SIDEBAR_CARD)
-                                .corner_radius(CornerRadius::same(14))
+                                .corner_radius(CornerRadius::same(6))
                                 .inner_margin(Margin::same(14))
                                 .show(ui, |ui| {
-                                    ui.label(RichText::new(if done == 0 { "START HERE" } else { "PICK UP WHERE YOU LEFT OFF" }).size(9.0).strong().color(SIDEBAR_ACCENT));
+                                    ui.label(RichText::new(if done == 0 { "START HERE" } else { "PICK UP WHERE YOU LEFT OFF" }).size(10.0).strong().color(SIDEBAR_ACCENT));
                                     ui.add_space(6.0);
-                                    ui.label(RichText::new(format!("UNIT {:02}", index + 1)).size(9.0).strong().color(SIDEBAR_TEXT));
+                                    ui.label(RichText::new(format!("UNIT {:02}", index + 1)).size(10.0).strong().color(SIDEBAR_TEXT));
                                     ui.label(RichText::new(&unit.title).size(13.0).strong().color(WHITE));
                                     ui.add_space(8.0);
                                     if ui.add_sized([ui.available_width(), 42.0], action_button("Continue lesson  →", true)).clicked() {
@@ -664,10 +664,10 @@ impl FrenchApp {
                         } else {
                             Frame::new()
                                 .fill(SIDEBAR_CARD)
-                                .corner_radius(CornerRadius::same(14))
+                                .corner_radius(CornerRadius::same(6))
                                 .inner_margin(Margin::same(15))
                                 .show(ui, |ui| {
-                                    ui.label(RichText::new("COURSE COMPLETE").size(10.0).strong().color(SIDEBAR_ACCENT));
+                                    ui.label(RichText::new("COURSE COMPLETE").size(11.0).strong().color(SIDEBAR_ACCENT));
                                     ui.label(RichText::new(format!("Bravo! All {total} units finished.")).size(14.0).strong().color(WHITE));
                                 });
                         }
@@ -813,15 +813,15 @@ impl FrenchApp {
                 ui.add_space(12.0);
                 Frame::new()
                     .fill(PALE_BLUE)
-                    .stroke(Stroke::new(1.0, Color32::from_rgb(215, 224, 246)))
-                    .corner_radius(CornerRadius::same(14))
+                    .stroke(Stroke::new(1.0, BORDER))
+                    .corner_radius(CornerRadius::same(6))
                     .inner_margin(Margin::same(16))
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
                             ui.vertical(|ui| {
                                 ui.label(
                                     RichText::new("YOUR LEARNING RECORD")
-                                        .size(9.0)
+                                        .size(10.0)
                                         .strong()
                                         .color(BLUE),
                                 );
@@ -837,7 +837,7 @@ impl FrenchApp {
                                 );
                                 ui.label(
                                     RichText::new("Opening a lesson marks today as a study day.")
-                                        .size(11.0)
+                                        .size(12.0)
                                         .color(MUTED),
                                 );
                             });
@@ -963,14 +963,14 @@ impl FrenchApp {
                 ui.add_space(20.0);
                 Frame::new()
                     .fill(Color32::from_rgb(239, 237, 231))
-                    .corner_radius(CornerRadius::same(14))
+                    .corner_radius(CornerRadius::same(6))
                     .inner_margin(Margin::same(15))
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
                             ui.vertical(|ui| {
                                 ui.label(
                                     RichText::new("YOUR PROGRESS, YOUR MAC")
-                                        .size(10.0)
+                                        .size(11.0)
                                         .strong()
                                         .color(NAVY),
                                 );
@@ -1099,7 +1099,7 @@ impl FrenchApp {
 
                 Frame::new()
                     .fill(NAVY)
-                    .corner_radius(CornerRadius::same(17))
+                    .corner_radius(CornerRadius::same(6))
                     .inner_margin(Margin::same(20))
                     .show(ui, |ui| {
                         ui.take_available_width();
@@ -1107,7 +1107,7 @@ impl FrenchApp {
                             ui.vertical(|ui| {
                                 ui.label(
                                     RichText::new("KEEP YOUR RHYTHM")
-                                        .size(9.0)
+                                        .size(10.0)
                                         .strong()
                                         .color(HERO_TINT),
                                 );
@@ -1133,7 +1133,7 @@ impl FrenchApp {
                             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                                 Frame::new()
                                     .fill(SIDEBAR_CARD)
-                                    .corner_radius(CornerRadius::same(13))
+                                    .corner_radius(CornerRadius::same(5))
                                     .inner_margin(Margin::symmetric(17, 11))
                                     .show(ui, |ui| {
                                         ui.vertical_centered(|ui| {
@@ -1145,7 +1145,7 @@ impl FrenchApp {
                                             );
                                             ui.label(
                                                 RichText::new("DAY STREAK")
-                                                    .size(9.0)
+                                                    .size(10.0)
                                                     .strong()
                                                     .color(WHITE),
                                             );
@@ -1202,13 +1202,13 @@ impl FrenchApp {
                             Frame::new()
                                 .fill(fill)
                                 .stroke(Stroke::new(if day.is_today { 1.5 } else { 1.0 }, edge))
-                                .corner_radius(CornerRadius::same(12))
+                                .corner_radius(CornerRadius::same(5))
                                 .inner_margin(Margin::symmetric(4, 10))
                                 .show(column, |ui| {
                                     ui.vertical_centered(|ui| {
                                         ui.label(
                                             RichText::new(day.weekday)
-                                                .size(10.0)
+                                                .size(11.0)
                                                 .strong()
                                                 .color(MUTED),
                                         );
@@ -1262,7 +1262,7 @@ impl FrenchApp {
                     RichText::new(
                         "Older imported completions count toward course milestones. Study-day and quiz history begins in the native app.",
                     )
-                    .size(11.0)
+                    .size(12.0)
                     .color(MUTED),
                 );
 
@@ -1364,7 +1364,7 @@ impl FrenchApp {
                         )
                         .fill(if selected { BRAND } else { WHITE })
                         .stroke(Stroke::new(1.0, if selected { BRAND } else { BORDER }))
-                        .corner_radius(CornerRadius::same(10))
+                        .corner_radius(CornerRadius::same(4))
                         .min_size(Vec2::new(122.0, 39.0));
                         let response = ui.add(button);
                         if focus_lesson_entry && tab == LessonTab::Words {
@@ -1407,8 +1407,8 @@ impl FrenchApp {
         if let Some(pronunciation) = &unit.pronunciation {
             Frame::new()
                 .fill(PALE_BLUE)
-                .stroke(Stroke::new(1.0, Color32::from_rgb(214, 225, 243)))
-                .corner_radius(CornerRadius::same(16))
+                .stroke(Stroke::new(1.0, BORDER))
+                .corner_radius(CornerRadius::same(6))
                 .inner_margin(Margin::same(20))
                 .show(ui, |ui| {
                     ui.label(
@@ -1439,7 +1439,7 @@ impl FrenchApp {
             Frame::new()
                 .fill(WHITE)
                 .stroke(Stroke::new(1.0, BORDER))
-                .corner_radius(CornerRadius::same(14))
+                .corner_radius(CornerRadius::same(6))
                 .inner_margin(Margin::same(15))
                 .show(ui, |ui| {
                     ui.horizontal_top(|ui| {
@@ -1449,7 +1449,7 @@ impl FrenchApp {
                             if let Some(tip) = &line.tip {
                                 ui.add_space(4.0);
                                 ui.label(
-                                    RichText::new(format!("TIP  {tip}")).size(11.0).color(BLUE),
+                                    RichText::new(format!("TIP  {tip}")).size(12.0).color(BLUE),
                                 );
                             }
                         });
@@ -1486,7 +1486,7 @@ impl FrenchApp {
         Frame::new()
             .fill(WHITE)
             .stroke(Stroke::new(1.0, BORDER))
-            .corner_radius(CornerRadius::same(16))
+            .corner_radius(CornerRadius::same(6))
             .inner_margin(Margin::same(22))
             .show(ui, |ui| {
                 ui.label(
@@ -1523,7 +1523,7 @@ impl FrenchApp {
             Frame::new()
                 .fill(fill)
                 .stroke(Stroke::new(1.0, BORDER))
-                .corner_radius(CornerRadius::same(14))
+                .corner_radius(CornerRadius::same(6))
                 .inner_margin(Margin::same(15))
                 .show(ui, |ui| {
                     ui.horizontal_top(|ui| {
@@ -1531,7 +1531,7 @@ impl FrenchApp {
                         ui.vertical(|ui| {
                             ui.label(
                                 RichText::new(format!("PERSON {}", line.speaker))
-                                    .size(9.0)
+                                    .size(10.0)
                                     .strong()
                                     .color(MUTED),
                             );
@@ -1802,6 +1802,17 @@ fn resolve_resources() -> PathBuf {
 fn apply_theme(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
     #[cfg(target_os = "macos")]
+    if let Ok(data) = fs::read("/System/Library/Fonts/SFNS.ttf") {
+        let name = "system-sans".to_owned();
+        fonts.font_data.insert(
+            name.clone(),
+            std::sync::Arc::new(egui::FontData::from_owned(data)),
+        );
+        if let Some(family) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
+            family.insert(0, name);
+        }
+    }
+    #[cfg(target_os = "macos")]
     if let Ok(data) = fs::read("/System/Library/Fonts/Supplemental/STIXGeneral.otf") {
         let name = "system-ipa-fallback".to_owned();
         fonts.font_data.insert(
@@ -1833,16 +1844,16 @@ fn apply_theme(ctx: &egui::Context) {
     visuals.widgets.active.bg_fill = TEAL;
     visuals.widgets.active.fg_stroke = Stroke::new(1.0, WHITE);
     visuals.widgets.open.bg_fill = PALE_BLUE;
-    visuals.widgets.inactive.corner_radius = CornerRadius::same(10);
-    visuals.widgets.hovered.corner_radius = CornerRadius::same(10);
-    visuals.widgets.active.corner_radius = CornerRadius::same(10);
-    visuals.widgets.open.corner_radius = CornerRadius::same(10);
+    visuals.widgets.inactive.corner_radius = CornerRadius::same(4);
+    visuals.widgets.hovered.corner_radius = CornerRadius::same(4);
+    visuals.widgets.active.corner_radius = CornerRadius::same(4);
+    visuals.widgets.open.corner_radius = CornerRadius::same(4);
     ctx.set_visuals(visuals);
     ctx.style_mut_of(egui::Theme::Light, |style| {
         style.spacing.interact_size = Vec2::new(40.0, 40.0);
         style.spacing.item_spacing = Vec2::new(10.0, 10.0);
         style.spacing.button_padding = Vec2::new(13.0, 8.0);
-        style.visuals.window_corner_radius = CornerRadius::same(14);
+        style.visuals.window_corner_radius = CornerRadius::same(6);
     });
 }
 
@@ -1858,7 +1869,7 @@ fn home_hero(
     let mut focused = false;
     Frame::new()
         .fill(NAVY)
-        .corner_radius(CornerRadius::same(18))
+        .corner_radius(CornerRadius::same(6))
         .inner_margin(Margin::same(26))
         .show(ui, |ui| {
             ui.take_available_width();
@@ -1876,7 +1887,7 @@ fn home_hero(
                     |ui| {
                         ui.label(
                             RichText::new("TEF CANADA · YOUR STUDY PLAN")
-                                .size(10.0)
+                                .size(11.0)
                                 .strong()
                                 .color(HERO_TINT),
                         );
@@ -1909,7 +1920,7 @@ fn home_hero(
                                             "CONTINUE WITH"
                                         }
                                     ))
-                                    .size(9.0)
+                                    .size(10.0)
                                     .strong()
                                     .color(HERO_TINT),
                                 );
@@ -1945,7 +1956,7 @@ fn home_hero(
                             RichText::new(format!(
                                 "Pass {PASS_SCORE}% on the quiz to unlock your next lesson."
                             ))
-                            .size(10.5)
+                            .size(11.5)
                             .color(HERO_TEXT),
                         );
                     },
@@ -1954,7 +1965,7 @@ fn home_hero(
                     let tile_size = Vec2::new(image_width, image_width * 0.62);
                     let (tile_rect, _) = ui.allocate_exact_size(tile_size, Sense::hover());
                     ui.painter()
-                        .rect_filled(tile_rect, CornerRadius::same(14), HERO_TILE);
+                        .rect_filled(tile_rect, CornerRadius::same(6), HERO_TILE);
                     let art_width = image_width - 22.0;
                     let art_rect = egui::Rect::from_center_size(
                         tile_rect.center(),
@@ -1976,13 +1987,13 @@ fn completion_hero(ui: &mut egui::Ui, total: usize, focus_entry: bool) -> bool {
     let mut focused = false;
     Frame::new()
         .fill(NAVY)
-        .corner_radius(CornerRadius::same(18))
+        .corner_radius(CornerRadius::same(6))
         .inner_margin(Margin::same(26))
         .show(ui, |ui| {
             ui.take_available_width();
             ui.label(
                 RichText::new("COURSE COMPLETE")
-                    .size(10.0)
+                    .size(11.0)
                     .strong()
                     .color(HERO_TINT),
             );
@@ -2015,14 +2026,14 @@ fn metric_card(ui: &mut egui::Ui, kicker: &str, value: String, detail: String, p
     Frame::new()
         .fill(WHITE)
         .stroke(Stroke::new(1.0, BORDER))
-        .corner_radius(CornerRadius::same(15))
+        .corner_radius(CornerRadius::same(6))
         .inner_margin(Margin::same(14))
         .show(ui, |ui| {
             ui.set_min_height(93.0);
-            ui.label(RichText::new(kicker).size(9.0).strong().color(MUTED));
+            ui.label(RichText::new(kicker).size(10.0).strong().color(MUTED));
             ui.add_space(2.0);
             ui.label(RichText::new(value).size(16.0).strong().color(NAVY));
-            ui.label(RichText::new(detail).size(11.0).color(MUTED));
+            ui.label(RichText::new(detail).size(12.0).color(MUTED));
             ui.add_space(4.0);
             progress_track(ui, progress, 4.0, ui.available_width(), TEAL);
         });
@@ -2066,7 +2077,7 @@ fn level_header(
     Frame::new()
         .fill(WHITE)
         .stroke(Stroke::new(1.0, BORDER))
-        .corner_radius(CornerRadius::same(16))
+        .corner_radius(CornerRadius::same(6))
         .inner_margin(Margin::same(14))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -2082,15 +2093,15 @@ fn level_header(
                                 .strong()
                                 .color(NAVY),
                         );
-                        ui.label(RichText::new(&level.cefr).size(10.0).strong().color(BLUE));
+                        ui.label(RichText::new(&level.cefr).size(11.0).strong().color(BLUE));
                     });
                     ui.label(RichText::new(&level.title).size(13.0).color(INK));
-                    ui.label(RichText::new(&level.desc).size(11.0).color(MUTED));
+                    ui.label(RichText::new(&level.desc).size(12.0).color(MUTED));
                 });
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     ui.label(
                         RichText::new(format!("{done} / {total} complete"))
-                            .size(11.0)
+                            .size(12.0)
                             .strong()
                             .color(if done == total { GREEN } else { MUTED }),
                     );
@@ -2117,7 +2128,7 @@ fn show_unit_card(
             Color32::from_rgb(249, 248, 245)
         })
         .stroke(Stroke::new(1.0, BORDER))
-        .corner_radius(CornerRadius::same(16))
+        .corner_radius(CornerRadius::same(6))
         .inner_margin(Margin::same(15))
         .show(ui, |ui| {
             ui.set_min_height(157.0);
@@ -2136,7 +2147,7 @@ fn show_unit_card(
                 ui.vertical(|ui| {
                     ui.label(
                         RichText::new(format!("UNIT {number:02}"))
-                            .size(9.0)
+                            .size(10.0)
                             .strong()
                             .color(MUTED),
                     );
@@ -2161,7 +2172,7 @@ fn show_unit_card(
                     } else {
                         ("LOCKED", MUTED)
                     };
-                    ui.label(RichText::new(badge).size(8.5).strong().color(color));
+                    ui.label(RichText::new(badge).size(9.5).strong().color(color));
                 });
             });
             ui.add_space(7.0);
@@ -2190,14 +2201,14 @@ fn show_unit_card(
                     if let Some(score) = progress.scores.get(&unit.id) {
                         ui.label(
                             RichText::new(format!("Best score · {score}%"))
-                                .size(10.0)
+                                .size(11.0)
                                 .color(MUTED),
                         );
                     }
                 } else {
                     ui.label(
                         RichText::new(unlock_title.unwrap_or("Pass the previous quiz to unlock"))
-                            .size(10.5)
+                            .size(11.5)
                             .color(MUTED),
                     );
                 }
@@ -2212,13 +2223,13 @@ fn video_card(ui: &mut egui::Ui, title: &str, detail: &str) -> bool {
     Frame::new()
         .fill(WHITE)
         .stroke(Stroke::new(1.0, BORDER))
-        .corner_radius(CornerRadius::same(16))
+        .corner_radius(CornerRadius::same(6))
         .inner_margin(Margin::same(17))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 let (rect, _) = ui.allocate_exact_size(Vec2::new(54.0, 46.0), Sense::hover());
                 ui.painter()
-                    .rect_filled(rect, CornerRadius::same(12), PALE_BLUE);
+                    .rect_filled(rect, CornerRadius::same(5), PALE_BLUE);
                 ui.painter().text(
                     rect.center(),
                     Align2::CENTER_CENTER,
@@ -2228,7 +2239,7 @@ fn video_card(ui: &mut egui::Ui, title: &str, detail: &str) -> bool {
                 );
                 ui.vertical(|ui| {
                     ui.label(RichText::new(title).size(15.0).strong().color(NAVY));
-                    ui.label(RichText::new(detail).size(11.0).color(MUTED));
+                    ui.label(RichText::new(detail).size(12.0).color(MUTED));
                 });
             });
             ui.add_space(9.0);
@@ -2248,7 +2259,7 @@ fn lesson_intro(
     Frame::new()
         .fill(WHITE)
         .stroke(Stroke::new(1.0, BORDER))
-        .corner_radius(CornerRadius::same(19))
+        .corner_radius(CornerRadius::same(6))
         .inner_margin(Margin::same(22))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -2257,12 +2268,17 @@ fn lesson_intro(
                         ui.label(RichText::new(&unit.icon).size(18.0));
                         ui.label(
                             RichText::new(format!("NIVEAU {} · UNIT {number:02}", unit.level))
-                                .size(10.0)
+                                .size(11.0)
                                 .strong()
                                 .color(BLUE),
                         );
                         if complete {
-                            ui.label(RichText::new("✓ COMPLETED").size(9.0).strong().color(GREEN));
+                            ui.label(
+                                RichText::new("✓ COMPLETED")
+                                    .size(10.0)
+                                    .strong()
+                                    .color(GREEN),
+                            );
                         }
                     });
                     ui.add_space(5.0);
@@ -2287,7 +2303,7 @@ fn lesson_intro(
                     let size = Vec2::new(width, width * 0.62);
                     Frame::new()
                         .fill(PALE_BLUE)
-                        .corner_radius(CornerRadius::same(14))
+                        .corner_radius(CornerRadius::same(6))
                         .inner_margin(Margin::same(3))
                         .show(ui, |ui| {
                             ui.add(Image::new((image.id(), size)).fit_to_exact_size(size));
@@ -2301,7 +2317,7 @@ fn section_heading(ui: &mut egui::Ui, title: &str, detail: String) {
     ui.horizontal(|ui| {
         ui.label(RichText::new(title).size(18.0).strong().color(NAVY));
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            ui.label(RichText::new(detail).size(11.0).color(MUTED));
+            ui.label(RichText::new(detail).size(12.0).color(MUTED));
         });
     });
 }
@@ -2458,14 +2474,14 @@ fn journey_stat_card(ui: &mut egui::Ui, kicker: &str, value: String, detail: &st
     Frame::new()
         .fill(WHITE)
         .stroke(Stroke::new(1.0, BORDER))
-        .corner_radius(CornerRadius::same(14))
+        .corner_radius(CornerRadius::same(6))
         .inner_margin(Margin::same(13))
         .show(ui, |ui| {
             ui.set_min_height(82.0);
-            ui.label(RichText::new(kicker).size(9.0).strong().color(MUTED));
+            ui.label(RichText::new(kicker).size(10.0).strong().color(MUTED));
             ui.add_space(3.0);
             ui.label(RichText::new(value).size(18.0).strong().color(NAVY));
-            ui.label(RichText::new(detail).size(10.5).color(MUTED));
+            ui.label(RichText::new(detail).size(11.5).color(MUTED));
         });
 }
 
@@ -2480,7 +2496,7 @@ fn journey_milestone_card(ui: &mut egui::Ui, info: &JourneyCardInfo) {
                 BORDER
             },
         ))
-        .corner_radius(CornerRadius::same(14))
+        .corner_radius(CornerRadius::same(6))
         .inner_margin(Margin::same(14))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -2492,7 +2508,7 @@ fn journey_milestone_card(ui: &mut egui::Ui, info: &JourneyCardInfo) {
                 );
                 ui.vertical(|ui| {
                     ui.label(RichText::new(&info.title).size(13.0).strong().color(NAVY));
-                    ui.label(RichText::new(&info.detail).size(11.0).color(MUTED));
+                    ui.label(RichText::new(&info.detail).size(12.0).color(MUTED));
                 });
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     ui.label(
@@ -2501,7 +2517,7 @@ fn journey_milestone_card(ui: &mut egui::Ui, info: &JourneyCardInfo) {
                         } else {
                             "IN PROGRESS"
                         })
-                        .size(8.5)
+                        .size(9.5)
                         .strong()
                         .color(if info.unlocked { GREEN } else { BLUE }),
                     );
@@ -2517,7 +2533,7 @@ fn journey_milestone_card(ui: &mut egui::Ui, info: &JourneyCardInfo) {
             );
             ui.label(
                 RichText::new(format!("{} / {} lessons", info.current, info.target))
-                    .size(10.0)
+                    .size(11.0)
                     .color(MUTED),
             );
         });
@@ -2535,7 +2551,7 @@ fn achievement_card(ui: &mut egui::Ui, info: &JourneyCardInfo) {
                 BORDER
             },
         ))
-        .corner_radius(CornerRadius::same(14))
+        .corner_radius(CornerRadius::same(6))
         .inner_margin(Margin::same(14))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -2547,12 +2563,12 @@ fn achievement_card(ui: &mut egui::Ui, info: &JourneyCardInfo) {
                 );
                 ui.vertical(|ui| {
                     ui.label(RichText::new(&info.title).size(13.0).strong().color(NAVY));
-                    ui.label(RichText::new(&info.detail).size(11.0).color(MUTED));
+                    ui.label(RichText::new(&info.detail).size(12.0).color(MUTED));
                 });
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     ui.label(
                         RichText::new(if info.unlocked { "EARNED" } else { "LOCKED" })
-                            .size(8.5)
+                            .size(9.5)
                             .strong()
                             .color(if info.unlocked { GREEN } else { MUTED }),
                     );
@@ -2569,7 +2585,7 @@ fn achievement_card(ui: &mut egui::Ui, info: &JourneyCardInfo) {
                 );
                 ui.label(
                     RichText::new(format!("{} / {}", info.current, info.target))
-                        .size(10.0)
+                        .size(11.0)
                         .color(MUTED),
                 );
             }
@@ -2581,16 +2597,16 @@ fn record_row(ui: &mut egui::Ui, title: &str, date: &str, result: &str, color: C
     Frame::new()
         .fill(WHITE)
         .stroke(Stroke::new(1.0, BORDER))
-        .corner_radius(CornerRadius::same(11))
+        .corner_radius(CornerRadius::same(5))
         .inner_margin(Margin::symmetric(12, 9))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
                     ui.label(RichText::new(title).size(11.5).strong().color(NAVY));
-                    ui.label(RichText::new(date).size(10.0).color(MUTED));
+                    ui.label(RichText::new(date).size(11.0).color(MUTED));
                 });
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    ui.label(RichText::new(result).size(9.0).strong().color(color));
+                    ui.label(RichText::new(result).size(10.0).strong().color(color));
                 });
             });
         });
@@ -2614,7 +2630,7 @@ fn quiz_question_card(
     Frame::new()
         .fill(WHITE)
         .stroke(Stroke::new(1.0, BORDER))
-        .corner_radius(CornerRadius::same(19))
+        .corner_radius(CornerRadius::same(6))
         .inner_margin(Margin::same(24))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -2624,14 +2640,14 @@ fn quiz_question_card(
                         session.question_index + 1,
                         total
                     ))
-                    .size(10.0)
+                    .size(11.0)
                     .strong()
                     .color(BLUE),
                 );
                 if question.kind == "listening" {
                     ui.label(
                         RichText::new("LISTENING PRACTICE")
-                            .size(9.0)
+                            .size(10.0)
                             .strong()
                             .color(TEAL),
                     );
@@ -2658,7 +2674,7 @@ fn quiz_question_card(
                 }
                 ui.label(
                     RichText::new("Listen as many times as you need.")
-                        .size(11.0)
+                        .size(12.0)
                         .color(MUTED),
                 );
                 ui.add_space(10.0);
@@ -2687,7 +2703,7 @@ fn quiz_question_card(
                 let button = Button::new(RichText::new(label).size(14.0).color(text_color))
                     .fill(fill)
                     .stroke(Stroke::new(1.0, stroke))
-                    .corner_radius(CornerRadius::same(12))
+                    .corner_radius(CornerRadius::same(5))
                     .min_size(Vec2::new(ui.available_width(), 48.0));
                 let response = ui.add_enabled(session.selected.is_none(), button);
                 if focus_first_answer && choice_index == 0 && response.enabled() {
@@ -2716,7 +2732,7 @@ fn quiz_question_card(
                             Color32::from_rgb(242, 211, 199)
                         },
                     ))
-                    .corner_radius(CornerRadius::same(13))
+                    .corner_radius(CornerRadius::same(5))
                     .inner_margin(Margin::same(15))
                     .show(ui, |ui| {
                         ui.label(
@@ -2806,10 +2822,10 @@ fn quiz_result_card(
     let mut focused = false;
     Frame::new()
         .fill(if passed && can_continue { Color32::from_rgb(31, 62, 68) } else { Color32::from_rgb(54, 49, 66) })
-        .corner_radius(CornerRadius::same(21))
+        .corner_radius(CornerRadius::same(6))
         .inner_margin(Margin::same(28))
         .show(ui, |ui| {
-            ui.label(RichText::new(if passed && can_continue { "UNIT COMPLETE" } else { "PRACTICE COMPLETE" }).size(10.0).strong().color(if passed && can_continue { Color32::from_rgb(164, 223, 200) } else { Color32::from_rgb(213, 203, 231) }));
+            ui.label(RichText::new(if passed && can_continue { "UNIT COMPLETE" } else { "PRACTICE COMPLETE" }).size(11.0).strong().color(if passed && can_continue { Color32::from_rgb(164, 223, 200) } else { Color32::from_rgb(213, 203, 231) }));
             ui.add_space(8.0);
             ui.label(RichText::new(if passed && can_continue { "Bravo !" } else if passed { "You passed — save needed." } else { "Good effort — keep at it." }).size(29.0).strong().color(WHITE));
             ui.label(RichText::new(format!("You scored {} / {} · {score}%", session.correct, unit.quiz.len())).size(15.0).color(WHITE));
@@ -2902,7 +2918,7 @@ struct ActionButton<'a> {
 impl egui::Widget for ActionButton<'_> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         let text_color = if self.primary { WHITE } else { NAVY };
-        let font = FontId::proportional(12.0);
+        let font = FontId::proportional(13.0);
         let galley = ui
             .painter()
             .layout_no_wrap(self.label.to_owned(), font, text_color);
@@ -2928,11 +2944,11 @@ impl egui::Widget for ActionButton<'_> {
         } else {
             PALE_SURFACE
         };
-        ui.painter().rect_filled(rect, CornerRadius::same(10), fill);
+        ui.painter().rect_filled(rect, CornerRadius::same(4), fill);
         if !self.primary {
             ui.painter().rect_stroke(
                 rect,
-                CornerRadius::same(10),
+                CornerRadius::same(4),
                 Stroke::new(1.0, BORDER),
                 egui::StrokeKind::Inside,
             );
@@ -2940,7 +2956,7 @@ impl egui::Widget for ActionButton<'_> {
         if response.has_focus() {
             ui.painter().rect_stroke(
                 rect.shrink(1.0),
-                CornerRadius::same(9),
+                CornerRadius::same(4),
                 Stroke::new(1.5, FOCUS_RING),
                 egui::StrokeKind::Inside,
             );
@@ -2977,7 +2993,12 @@ fn icon_action_button<'a>(
 }
 
 fn sidebar_section_label(ui: &mut egui::Ui, label: &str) {
-    ui.label(RichText::new(label).size(9.0).strong().color(SIDEBAR_MUTED));
+    ui.label(
+        RichText::new(label)
+            .size(10.0)
+            .strong()
+            .color(SIDEBAR_MUTED),
+    );
 }
 
 fn sidebar_nav_item(ui: &mut egui::Ui, icon: &str, label: &str, active: bool) -> egui::Response {
@@ -2991,7 +3012,7 @@ fn sidebar_nav_item(ui: &mut egui::Ui, icon: &str, label: &str, active: bool) ->
         Color32::TRANSPARENT
     };
     if fill != Color32::TRANSPARENT {
-        ui.painter().rect_filled(rect, CornerRadius::same(9), fill);
+        ui.painter().rect_filled(rect, CornerRadius::same(4), fill);
     }
     if active {
         ui.painter().rect_filled(
@@ -3003,7 +3024,7 @@ fn sidebar_nav_item(ui: &mut egui::Ui, icon: &str, label: &str, active: bool) ->
     if response.has_focus() {
         ui.painter().rect_stroke(
             rect.shrink(1.0),
-            CornerRadius::same(8),
+            CornerRadius::same(4),
             Stroke::new(1.5, FOCUS_RING),
             egui::StrokeKind::Inside,
         );
@@ -3025,7 +3046,7 @@ fn sidebar_nav_item(ui: &mut egui::Ui, icon: &str, label: &str, active: bool) ->
         rect.min + Vec2::new(45.0, rect.height() * 0.5),
         Align2::LEFT_CENTER,
         label,
-        FontId::proportional(12.0),
+        FontId::proportional(13.0),
         text_color,
     );
     response.widget_info(|| {
@@ -3051,13 +3072,13 @@ fn sidebar_level_item(
         Color32::TRANSPARENT
     };
     if fill != Color32::TRANSPARENT {
-        ui.painter().rect_filled(rect, CornerRadius::same(9), fill);
+        ui.painter().rect_filled(rect, CornerRadius::same(4), fill);
     }
     let badge_rect =
         egui::Rect::from_min_size(rect.min + Vec2::new(9.0, 12.0), Vec2::new(34.0, 25.0));
     ui.painter().rect_filled(
         badge_rect,
-        CornerRadius::same(7),
+        CornerRadius::same(4),
         if active {
             SIDEBAR_ACCENT
         } else {
@@ -3068,7 +3089,7 @@ fn sidebar_level_item(
         badge_rect.center(),
         Align2::CENTER_CENTER,
         level.cefr.split_whitespace().next().unwrap_or(&level.cefr),
-        FontId::proportional(10.0),
+        FontId::proportional(11.0),
         WHITE,
     );
     let label_color = if active { WHITE } else { SIDEBAR_TEXT };
@@ -3077,21 +3098,21 @@ fn sidebar_level_item(
         rect.min + Vec2::new(52.0, 17.0),
         Align2::LEFT_CENTER,
         format!("Niveau {}", level.n),
-        FontId::proportional(10.5),
+        FontId::proportional(11.5),
         label_color,
     );
     ui.painter().text(
         rect.min + Vec2::new(52.0, 34.0),
         Align2::LEFT_CENTER,
         &level.title,
-        FontId::proportional(9.5),
+        FontId::proportional(10.5),
         count_color,
     );
     ui.painter().text(
         rect.right_top() + Vec2::new(-10.0, 17.0),
         Align2::RIGHT_CENTER,
         format!("{complete}/{total}"),
-        FontId::proportional(9.0),
+        FontId::proportional(10.0),
         count_color,
     );
     let track = egui::Rect::from_min_size(
@@ -3114,7 +3135,7 @@ fn sidebar_level_item(
     if response.has_focus() {
         ui.painter().rect_stroke(
             rect.shrink(1.0),
-            CornerRadius::same(8),
+            CornerRadius::same(4),
             Stroke::new(1.5, FOCUS_RING),
             egui::StrokeKind::Inside,
         );
@@ -3139,7 +3160,7 @@ fn number_dot(ui: &mut egui::Ui, number: usize, color: Color32) {
         rect.center(),
         Align2::CENTER_CENTER,
         format!("{number:02}"),
-        FontId::proportional(10.0),
+        FontId::proportional(11.0),
         WHITE,
     );
 }
@@ -3148,7 +3169,7 @@ fn empty_state(ui: &mut egui::Ui, text: &str) {
     Frame::new()
         .fill(WHITE)
         .stroke(Stroke::new(1.0, BORDER))
-        .corner_radius(CornerRadius::same(15))
+        .corner_radius(CornerRadius::same(6))
         .inner_margin(Margin::same(20))
         .show(ui, |ui| {
             ui.label(RichText::new(text).size(13.0).color(MUTED));
@@ -3170,7 +3191,7 @@ fn notice_bar(ui: &mut egui::Ui, message: &str, success: bool) {
                 Color32::from_rgb(246, 214, 199)
             },
         ))
-        .corner_radius(CornerRadius::same(12))
+        .corner_radius(CornerRadius::same(5))
         .inner_margin(Margin::same(10))
         .show(ui, |ui| {
             ui.label(
@@ -3216,7 +3237,7 @@ const TEAL_DOWN: Color32 = color(0x0d736b);
 const CORAL: Color32 = color(0xc85f54);
 const GREEN: Color32 = color(0x28795c);
 const BORDER: Color32 = color(0xe3e8f0);
-const PALE_BLUE: Color32 = color(0xeaf0ff);
+const PALE_BLUE: Color32 = color(0xf0f3f8);
 const PALE_GREEN: Color32 = color(0xe8f5ef);
 const HERO_TINT: Color32 = color(0xa9c4fa);
 const HERO_TEXT: Color32 = color(0xd8e0ef);
