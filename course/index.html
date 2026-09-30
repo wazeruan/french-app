@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:,">
 <title>Français Pas à Pas — Objectif TEF Canada</title>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -18,10 +19,10 @@
       </div>
     </div>
     <div class="header-controls">
-      <button id="rateToggle" class="pill-btn" title="Toggle slow pronunciation">🐢 Slow: off</button>
+      <button id="rateToggle" class="pill-btn" type="button" title="Toggle slow pronunciation" aria-pressed="false">🐢 Slow: off</button>
       <div class="progress-wrap">
-        <span id="progressText" class="progress-label">0 / 10 units</span>
-        <div class="progress-bar"><div id="progressFill"></div></div>
+        <span id="progressText" class="progress-label" aria-live="polite">Course progress</span>
+        <div class="progress-bar" role="progressbar" aria-label="Course units completed" aria-valuemin="0" aria-valuemax="25" aria-valuenow="0"><div id="progressFill"></div></div>
       </div>
     </div>
   </div>

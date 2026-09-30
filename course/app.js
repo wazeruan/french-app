@@ -107,11 +107,27 @@
     COURSE.units.forEach(function (u) { if (store.completed[u.id]) n++; });
     return n;
   }
+  function nextUnit() {
+    for (var i = 0; i < COURSE.units.length; i++) {
+      if (!store.completed[COURSE.units[i].id]) return COURSE.units[i];
+    }
+    return null;
+  }
+  function canOpenUnit(id) {
+    var u = getUnit(id);
+    if (!u) return false;
+    var next = nextUnit();
+    return !!store.completed[u.id] || !!(next && next.id === u.id);
+  }
   function renderProgress() {
     var done = completedCount(), total = COURSE.units.length;
-    var pt = $("#progressText"), pf = $("#progressFill");
+    var pt = $("#progressText"), pf = $("#progressFill"), pb = $(".progress-bar");
     if (pt) pt.textContent = done + " / " + total + " units";
     if (pf) pf.style.width = (total ? (done / total) * 100 : 0) + "%";
+    if (pb) {
+      pb.setAttribute("aria-valuemax", String(total));
+      pb.setAttribute("aria-valuenow", String(done));
+    }
   }
 
   /* ---------------- home ---------------- */
@@ -126,33 +142,55 @@
   function unitCard(u) {
     var done = !!store.completed[u.id];
     var score = store.scores[u.id];
-    return '<div class="unit-card" data-open="' + attr(u.id) + '" style="border-left-color:' + esc(u.color || "#4a90d9") + '">' +
+    var next = nextUnit();
+    var locked = !done && (!next || u.id !== next.id);
+    var tag = locked ? "article" : "a";
+    var linkAttrs = locked
+      ? 'aria-disabled="true"'
+      : 'href="#unit-' + attr(u.id) + '"' + (done ? "" : ' aria-current="step"');
+    var status = done ? '<span class="badge done">✓ Completed</span>' :
+      (locked ? '<span class="badge locked-badge">🔒 Locked</span>' : '<span class="badge next-badge">Up next</span>');
+    var action = locked
+      ? '<p class="lock-note">Pass Unit ' + unitNumber(next) + ' to unlock the next lesson</p>'
+      : '<span class="card-action">' + (done ? "Review unit" : "Start unit") + ' <span aria-hidden="true">→</span></span>';
+    return '<' + tag + ' class="unit-card' + (locked ? ' locked' : '') + '" ' + linkAttrs + ' style="border-left-color:' + esc(u.color || "#4a90d9") + '">' +
       '<span class="u-num">Unit ' + unitNumber(u) + "</span>" +
       '<div class="u-icon">' + esc(u.icon || "📘") + "</div>" +
       "<h3>" + esc(u.title) + "</h3>" +
       '<p class="u-fr">' + esc(u.titleFr) + "</p>" +
       '<p class="u-obj">' + esc((u.objectives && u.objectives[0]) || "") + "</p>" +
       '<div class="u-meta">' +
-      (done ? '<span class="badge done">✓ Completed</span>' : '<span class="badge todo">Not started</span>') +
+      status +
       (score != null ? '<span class="score-tag">Best quiz: ' + score + "%</span>" : "") +
-      "</div></div>";
+      "</div>" + action + "</" + tag + ">";
   }
 
   function renderHome() {
     var html = "";
-    html += '<div class="hero">' + eiffelSVG() +
-      "<div><h2>Bienvenue ! Objectif TEF Canada. 🇨🇦</h2>" +
-      "<p>25 units from zero to exam-ready: foundations (A1), autonomy (A2), then the TEF itself — format, scoring, and section-by-section training.</p>" +
-      "<ol><li>Work each level in order — nothing appears before you've learned it.</li>" +
-      "<li>Tap 🔊 on any French line to hear studio audio. 🐢 replays slowly.</li>" +
-      "<li>Every quiz has a 🎧 listening round, like the real exam. " + PASS_SCORE + "% completes a unit.</li></ol></div></div>";
+    var next = nextUnit();
+    var done = completedCount();
+    html += '<section class="hero" aria-labelledby="homeTitle">' + eiffelSVG() +
+      '<div class="hero-copy"><p class="hero-kicker">TEF CANADA · ' + COURSE.units.length + ' guided units</p>' +
+      '<h2 id="homeTitle" tabindex="-1">Bienvenue ! Your path to TEF Canada.</h2>' +
+      '<p>Build from your first French sounds to exam practice, one lesson at a time.</p>';
+    if (next) {
+      html += '<div class="next-lesson"><div><span class="eyebrow">' + (done ? "NEXT UP" : "START HERE") + ' · UNIT ' + unitNumber(next) + '</span>' +
+        '<strong>' + esc(next.title) + '</strong><span class="next-lesson-fr">' + esc(next.titleFr) + '</span></div>' +
+        '<a class="btn hero-cta" href="#unit-' + attr(next.id) + '">' + (done ? "Continue" : "Start learning") + ' <span aria-hidden="true">→</span></a></div>';
+    } else {
+      html += '<div class="next-lesson course-complete"><div><span class="eyebrow">COURSE COMPLETE</span>' +
+        '<strong>Bravo ! You finished all ' + COURSE.units.length + ' units.</strong><span class="next-lesson-fr">Review any completed lesson below.</span></div>' +
+        '<a class="btn hero-cta" href="#level-1">Review lessons <span aria-hidden="true">→</span></a></div>';
+    }
+    html += '<p class="hero-hint">Pass ' + PASS_SCORE + '% on a unit quiz to unlock the next lesson. Tap 🔊 to hear French audio; 🐢 slows it down.</p></div></section>';
 
     (COURSE.meta.levels || []).forEach(function (lv) {
       var units = COURSE.units.filter(function (u) { return u.level === lv.n; });
       if (!units.length) return;
-      html += '<img class="level-hero" src="images/level' + lv.n + '.jpg" onerror="this.style.display=\'none\'">' +
-        '<h2 class="section-title">Niveau ' + lv.n + " — " + esc(lv.title) +
-        ' <span class="cefr-badge">' + esc(lv.cefr) + "</span></h2>";
+      var levelDone = units.filter(function (u) { return !!store.completed[u.id]; }).length;
+      html += '<img class="level-hero" src="images/level' + lv.n + '.jpg" alt="" onerror="this.style.display=\'none\'">' +
+        '<div class="level-heading" id="level-' + lv.n + '"><h2 class="section-title" tabindex="-1">Niveau ' + lv.n + " — " + esc(lv.title) +
+        ' <span class="cefr-badge">' + esc(lv.cefr) + '</span></h2><span class="level-count">' + levelDone + ' / ' + units.length + ' complete</span></div>';
       html += '<p class="level-desc">' + esc(lv.desc) + "</p>";
       html += '<div class="unit-grid">' + units.map(unitCard).join("") + "</div>";
     });
@@ -161,7 +199,7 @@
     html += '<p class="level-desc">Short videos with French voiceover. Shadow them: pause, repeat out loud, imitate the rhythm.</p>';
     html += '<div class="unit-grid">';
     VIDEOS.forEach(function (v, i) {
-      html += '<div class="unit-card" style="border-left-color:#E63946;cursor:default">' +
+      html += '<div class="unit-card video-card">' +
         '<div class="u-icon">' + v.icon + "</div>" +
         "<h3>" + esc(v.title) + "</h3>" +
         '<p class="u-obj">' + esc(v.desc) + "</p>" +
@@ -172,9 +210,6 @@
     html += "</div>";
 
     $("#app").innerHTML = html;
-    $all("[data-open]").forEach(function (el) {
-      el.addEventListener("click", function () { openUnit(el.getAttribute("data-open")); });
-    });
     // gracefully handle missing video files (file:// can't probe the folder)
     $all(".study-video").forEach(function (vid) {
       vid.addEventListener("error", function () {
@@ -197,15 +232,45 @@
   ];
 
   function openUnit(id) {
+    if (!canOpenUnit(id)) return;
     view = { name: "unit", id: id, tab: "words" };
     quiz = null;
     renderUnit();
-    window.scrollTo(0, 0);
+    $("#unitTitle").focus();
+  }
+
+  function showHome() {
+    view = { name: "home" };
+    quiz = null;
+    renderHome();
+  }
+
+  function routeFromHash() {
+    var unitMatch = /^#unit-(.+)$/.exec(window.location.hash);
+    if (unitMatch) {
+      if (canOpenUnit(unitMatch[1])) {
+        openUnit(unitMatch[1]);
+      } else if (view.name === "unit") {
+        showHome();
+        $("#homeTitle").focus();
+      }
+      return;
+    }
+
+    var wasInUnit = view.name === "unit";
+    if (wasInUnit) showHome();
+    var levelMatch = /^#level-(\d+)$/.exec(window.location.hash);
+    if (levelMatch) {
+      var heading = $("#level-" + levelMatch[1] + " h2");
+      if (heading) heading.focus();
+    } else if (wasInUnit) {
+      $("#homeTitle").focus();
+    }
   }
 
   function audioRow(audioId, fr, en, tip) {
     return '<div class="row-item">' +
-      '<button class="speak-btn" data-audio="' + attr(audioId || "") + '" title="Listen">🔊</button>' +
+      '<button class="speak-btn" data-audio="' + attr(audioId || "") + '" title="Listen" aria-label="Play French audio: ' + attr(fr) + '">🔊</button>' +
       '<div style="flex:1"><span class="fr">' + esc(fr) + "</span> " +
       '<span class="en">— ' + esc(en) + "</span>" +
       (tip ? '<span class="tip">💡 ' + esc(tip) + "</span>" : "") +
@@ -218,29 +283,28 @@
     var lv = null;
     (COURSE.meta.levels || []).forEach(function (l) { if (l.n === u.level) lv = l; });
 
-    var html = '<button class="back-btn" id="backBtn">← All units</button>';
+    var html = '<a class="back-btn" href="index.html">← All units</a>';
     html += '<div class="unit-head" style="border-top-color:' + esc(u.color || "#4a90d9") + '">' +
       '<p class="uh-level">' + (lv ? "Niveau " + lv.n + " · " + esc(lv.title) : "") + "</p>" +
-      '<h2><span style="margin-right:8px">' + esc(u.icon || "📘") + "</span>Unit " + unitNumber(u) + ": " + esc(u.title) + "</h2>" +
+      '<h2 id="unitTitle" tabindex="-1"><span style="margin-right:8px">' + esc(u.icon || "📘") + "</span>Unit " + unitNumber(u) + ": " + esc(u.title) + "</h2>" +
       '<p class="uh-fr">' + esc(u.titleFr) + "</p>" +
       "<ul>" + (u.objectives || []).map(function (o) { return "<li>" + esc(o) + "</li>"; }).join("") + "</ul></div>";
     html += '<img class="unit-hero" src="images/' + attr(u.id) + '.jpg" onerror="this.style.display=\'none\'">';
 
     html += '<div class="tabs">';
     TABS.forEach(function (t) {
-      html += '<button class="tab' + (view.tab === t[0] ? " active" : "") + '" data-tab="' + t[0] + '">' + t[1] + "</button>";
+      html += '<button type="button" class="tab' + (view.tab === t[0] ? " active" : "") + '" aria-pressed="' + (view.tab === t[0] ? "true" : "false") + '" data-tab="' + t[0] + '">' + t[1] + "</button>";
     });
     html += "</div>";
     html += '<div id="tabBody">' + renderTab(u, view.tab) + "</div>";
 
     $("#app").innerHTML = html;
-    $("#backBtn").addEventListener("click", function () { view = { name: "home" }; quiz = null; renderHome(); });
     $all("[data-tab]").forEach(function (el) {
       el.addEventListener("click", function () {
         view.tab = el.getAttribute("data-tab");
         if (view.tab === "quiz" && !quiz) startQuiz(u.id);
         renderUnit();
-        window.scrollTo(0, 0);
+        $('[data-tab="' + view.tab + '"]').focus();
       });
     });
     bindAudioButtons($("#app"));
@@ -278,7 +342,7 @@
       (d.lines || []).forEach(function (ln) {
         dh += '<div class="bubble ' + esc(ln.speaker) + '"><span class="who">' + esc(ln.speaker === "A" ? "Person A" : "Person B") + "</span>" +
           '<div class="fr">' + esc(ln.fr) +
-          ' <button class="speak-btn" data-audio="' + attr(ln.audio || "") + '" title="Listen">🔊</button></div>' +
+          ' <button class="speak-btn" data-audio="' + attr(ln.audio || "") + '" title="Listen" aria-label="Play French audio: ' + attr(ln.fr) + '">🔊</button></div>' +
           '<div class="en">' + esc(ln.en) + "</div></div>";
       });
       return dh + "</div></div>";
@@ -301,7 +365,7 @@
     var h = '<div class="card">';
     h += '<p class="quiz-count">Question ' + (quiz.idx + 1) + " of " + qs.length +
       (q.type === "listening" ? ' · <span class="cefr-badge">🎧 listening</span>' : "") + "</p>";
-    h += '<p class="quiz-q">' + esc(q.q) + "</p>";
+    h += '<p class="quiz-q" id="quizQuestion" tabindex="-1">' + esc(q.q) + "</p>";
     if (q.type === "listening" && q.audio) {
       h += '<button class="listen-btn" data-audio="' + attr(q.audio) + '">🎧 Écouter (listen)</button>';
       h += '<p class="listen-hint">You can replay it as many times as you like — in the real exam, only once!</p>';
@@ -318,10 +382,10 @@
     });
     if (quiz.picked >= 0) {
       var ok = quiz.picked === q.answer;
-      h += '<div class="feedback ' + (ok ? "good" : "bad") + '"><strong>' + (ok ? "✓ Correct !" : "✗ Not quite.") + "</strong><br>" + esc(q.explain || "");
+      h += '<div class="feedback ' + (ok ? "good" : "bad") + '" id="quizFeedback" role="status" aria-live="polite" tabindex="-1"><strong>' + (ok ? "✓ Correct !" : "✗ Not quite.") + "</strong><br>" + esc(q.explain || "");
       if (q.type === "listening" && q.transcript) {
         h += '<br><br><em>You heard:</em> <span class="fr-heard">' + esc(q.transcript) + "</span> " +
-          '<button class="speak-btn" data-audio="' + attr(q.audio || "") + '" title="Listen again" style="width:30px;height:30px;font-size:.85rem">🔊</button>';
+          '<button class="speak-btn" data-audio="' + attr(q.audio || "") + '" title="Listen again" aria-label="Play French audio again: ' + attr(q.transcript) + '" style="font-size:.85rem">🔊</button>';
       }
       h += "</div>";
       h += '<div class="quiz-nav"><button class="btn" data-next="1">' + (quiz.idx + 1 < qs.length ? "Next →" : "See results →") + "</button></div>";
@@ -338,13 +402,13 @@
 
     var h = '<div class="card"><div class="quiz-result">';
     h += '<div class="big">' + (passed ? "🎉" : "💪") + "</div>";
-    h += "<h3>You scored " + quiz.correct + " / " + qs.length + " (" + pct + "%)</h3>";
+    h += '<h3 id="quizResultTitle" tabindex="-1">You scored ' + quiz.correct + " / " + qs.length + " (" + pct + "%)</h3>";
     h += passed
       ? "<p>Bravo ! Unit complete. 🎊</p>"
       : "<p>Good effort ! Review the unit and retry — " + PASS_SCORE + "% completes the unit.</p>";
     h += '<div style="margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">' +
       '<button class="btn secondary" data-retry="1">🔁 Retry quiz</button>' +
-      '<button class="btn" data-backhome="1">All units</button></div>';
+      '<a class="btn" href="index.html">All units</a></div>';
     return h + "</div></div>";
   }
 
@@ -357,6 +421,8 @@
         var q = (u.quiz || [])[quiz.idx] || {};
         if (i === q.answer) quiz.correct++;
         refreshTab(u);
+        var feedback = $("#quizFeedback");
+        if (feedback) feedback.focus();
       });
     });
     $all("[data-next]").forEach(function (el) {
@@ -365,14 +431,16 @@
         quiz.picked = -1;
         if (quiz.idx >= (u.quiz || []).length) quiz.finished = true;
         refreshTab(u);
-        window.scrollTo(0, 0);
+        var target = quiz.finished ? $("#quizResultTitle") : $("#quizQuestion");
+        if (target) target.focus();
       });
     });
     $all("[data-retry]").forEach(function (el) {
-      el.addEventListener("click", function () { startQuiz(u.id); refreshTab(u); });
-    });
-    $all("[data-backhome]").forEach(function (el) {
-      el.addEventListener("click", function () { view = { name: "home" }; quiz = null; renderHome(); window.scrollTo(0, 0); });
+      el.addEventListener("click", function () {
+        startQuiz(u.id);
+        refreshTab(u);
+        $("#quizQuestion").focus();
+      });
     });
   }
 
@@ -408,7 +476,10 @@
       slowMode = !slowMode;
       rt.textContent = slowMode ? "🐢 Slow: on" : "🐢 Slow: off";
       rt.classList.toggle("on", slowMode);
+      rt.setAttribute("aria-pressed", slowMode ? "true" : "false");
     });
+    window.addEventListener("hashchange", routeFromHash);
     renderHome();
+    routeFromHash();
   });
 })();
