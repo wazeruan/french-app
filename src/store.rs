@@ -5,6 +5,7 @@ use std::{
     fs::{self, File},
     io::Write,
     path::PathBuf,
+    process::Command,
 };
 
 pub fn data_dir() -> PathBuf {
@@ -18,6 +19,21 @@ pub fn data_dir() -> PathBuf {
 
 pub fn progress_path() -> PathBuf {
     data_dir().join("progress.json")
+}
+
+pub fn local_day_key() -> Option<String> {
+    #[cfg(target_os = "macos")]
+    let output = Command::new("/bin/date").arg("+%F").output();
+    #[cfg(not(target_os = "macos"))]
+    let output = Command::new("date").arg("+%F").output();
+
+    let output = output.ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let day = String::from_utf8(output.stdout).ok()?;
+    let day = day.trim();
+    Progress::valid_day(day).then(|| day.to_owned())
 }
 
 pub fn load_progress() -> (Progress, Option<String>) {
@@ -65,7 +81,7 @@ pub fn save_progress(progress: &Progress) -> Result<(), String> {
 
     let temporary = path.with_extension("json.tmp");
     let mut progress = progress.clone();
-    progress.version = 1;
+    progress.version = 2;
     let bytes = serde_json::to_vec_pretty(&progress)
         .map_err(|error| format!("Could not encode progress: {error}"))?;
     let mut file =
@@ -90,13 +106,14 @@ fn decode_saved_progress(bytes: &[u8]) -> Result<Progress, String> {
     }
     let mut progress: Progress =
         serde_json::from_value(value).map_err(|error| error.to_string())?;
-    if progress.version > 1 {
+    if progress.version > 2 {
         return Err(format!(
-            "Saved progress uses a newer version ({}) that this app cannot read safely.",
+            "Saved progress uses a newer version ({}) that this app cannot read safely (supported through version 2).",
             progress.version
         ));
     }
-    progress.version = 1;
+    progress.normalize();
+    progress.version = 2;
     Ok(progress)
 }
 
@@ -137,6 +154,13 @@ pub fn import_progress(path: &PathBuf, course: &Course) -> Result<Progress, Stri
     imported
         .scores
         .retain(|id, score| known.contains(id.as_str()) && *score <= 100);
-    imported.version = 1;
+    imported
+        .completed_on
+        .retain(|id, _| known.contains(id.as_str()) && imported.completed.contains_key(id));
+    imported
+        .quiz_history
+        .retain(|attempt| known.contains(attempt.unit_id.as_str()));
+    imported.normalize();
+    imported.version = 2;
     Ok(imported)
 }

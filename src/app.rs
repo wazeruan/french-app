@@ -16,12 +16,14 @@ const PASS_SCORE: u32 = 70;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Page {
     Home,
+    Journey,
     Lesson(usize),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum FocusTarget {
     HomeEntry,
+    JourneyEntry,
     LessonEntry,
 }
 
@@ -68,6 +70,16 @@ struct QuizSession {
     focus_result: bool,
 }
 
+#[derive(Clone, Debug)]
+struct JourneyCardInfo {
+    title: String,
+    detail: String,
+    icon: &'static str,
+    current: u32,
+    target: u32,
+    unlocked: bool,
+}
+
 impl QuizSession {
     fn new(unit_index: usize) -> Self {
         Self {
@@ -89,6 +101,8 @@ pub struct FrenchApp {
     course: Course,
     progress: Progress,
     resources: PathBuf,
+    today: Option<String>,
+    today_checked: Instant,
     page: Page,
     pending_page_focus: Option<FocusTarget>,
     lesson_tab: LessonTab,
@@ -123,6 +137,8 @@ impl FrenchApp {
             course,
             progress,
             resources,
+            today: store::local_day_key(),
+            today_checked: Instant::now(),
             page: Page::Home,
             pending_page_focus: None,
             lesson_tab: LessonTab::Words,
@@ -141,10 +157,82 @@ impl FrenchApp {
         self.progress.completed_count(&self.course)
     }
 
+    fn recognition_snapshot(&self) -> Vec<(bool, String)> {
+        milestone_cards(&self.course, &self.progress)
+            .into_iter()
+            .filter(|card| card.unlocked)
+            .map(|card| (false, card.title))
+            .chain(
+                achievement_cards(&self.course, &self.progress)
+                    .into_iter()
+                    .filter(|card| card.unlocked)
+                    .map(|card| (true, card.title)),
+            )
+            .collect()
+    }
+
+    fn new_recognition_message(&self, previous: &[(bool, String)]) -> Option<String> {
+        let current = self.recognition_snapshot();
+        current
+            .iter()
+            .find(|award| award.0 && !previous.contains(award))
+            .or_else(|| {
+                current
+                    .iter()
+                    .find(|award| !award.0 && !previous.contains(award))
+            })
+            .map(|(achievement, title)| {
+                format!(
+                    "{} unlocked: {title}!",
+                    if *achievement {
+                        "Achievement"
+                    } else {
+                        "Milestone"
+                    }
+                )
+            })
+    }
+
     fn next_index(&self) -> Option<usize> {
         self.progress
             .next_unit(&self.course)
             .and_then(|next| self.course.units.iter().position(|unit| unit.id == next.id))
+    }
+
+    fn refresh_today(&mut self) {
+        if self.today_checked.elapsed() >= Duration::from_secs(60) {
+            self.refresh_today_now();
+        }
+    }
+
+    fn refresh_today_now(&mut self) {
+        self.today = store::local_day_key();
+        self.today_checked = Instant::now();
+    }
+
+    fn record_study_day(&mut self) {
+        self.refresh_today_now();
+        let Some(today) = self.today.as_deref() else {
+            return;
+        };
+        let previous_awards = self.recognition_snapshot();
+        let mut updated = self.progress.clone();
+        if !updated.record_study_day(today) {
+            return;
+        }
+        if self.progress_load_error {
+            self.progress = updated;
+            return;
+        }
+        match store::save_progress(&updated) {
+            Ok(()) => {
+                self.progress = updated;
+                if let Some(message) = self.new_recognition_message(&previous_awards) {
+                    self.set_notice(message, true);
+                }
+            }
+            Err(error) => self.set_sticky_notice(error),
+        }
     }
 
     fn open_unit(&mut self, index: usize) {
@@ -155,6 +243,7 @@ impl FrenchApp {
             self.set_notice("Pass the previous quiz to unlock this lesson.", false);
             return;
         }
+        self.record_study_day();
         self.audio.stop();
         self.page = Page::Lesson(index);
         self.pending_page_focus = Some(FocusTarget::LessonEntry);
@@ -166,6 +255,13 @@ impl FrenchApp {
         self.audio.stop();
         self.page = Page::Home;
         self.pending_page_focus = Some(FocusTarget::HomeEntry);
+        self.quiz = None;
+    }
+
+    fn open_journey(&mut self) {
+        self.audio.stop();
+        self.page = Page::Journey;
+        self.pending_page_focus = Some(FocusTarget::JourneyEntry);
         self.quiz = None;
     }
 
@@ -184,12 +280,14 @@ impl FrenchApp {
         unit_id: &str,
         score: u32,
         passed: bool,
-    ) -> Result<(), String> {
+    ) -> Result<Option<String>, String> {
+        self.refresh_today_now();
+        let previous_awards = self.recognition_snapshot();
         let mut updated = self.progress.clone();
-        updated.record_quiz(unit_id, score, passed);
+        updated.record_quiz(unit_id, score, passed, self.today.as_deref());
         store::save_progress(&updated)?;
         self.progress = updated;
-        Ok(())
+        Ok(self.new_recognition_message(&previous_awards))
     }
 
     fn play_audio(&mut self, line: &StudyLine) {
@@ -385,10 +483,15 @@ impl FrenchApp {
         let mut toggle_slow = false;
         let mut import = false;
         ui.horizontal(|ui| {
-            if matches!(self.page, Page::Lesson(_))
-                && ui.add(action_button("‹  All lessons", false)).clicked()
-            {
-                go_home = true;
+            if !matches!(self.page, Page::Home) {
+                let label = if matches!(self.page, Page::Journey) {
+                    "‹  Overview"
+                } else {
+                    "‹  All lessons"
+                };
+                if ui.add(action_button(label, false)).clicked() {
+                    go_home = true;
+                }
             }
             ui.add_space(2.0);
             let (logo_rect, _) = ui.allocate_exact_size(Vec2::splat(38.0), Sense::hover());
@@ -483,6 +586,7 @@ impl FrenchApp {
         let total = self.course.units.len();
         let next = self.next_index();
         let mut go_home = false;
+        let mut open_journey = false;
         let mut scroll_level = None;
         let mut open_next = None;
         ScrollArea::vertical().show(ui, |ui| {
@@ -501,6 +605,23 @@ impl FrenchApp {
                     }
                     if response.clicked() {
                         go_home = true;
+                    }
+                    ui.add_space(7.0);
+                    let response = ui.add_sized(
+                        [ui.available_width(), 42.0],
+                        nav_button(
+                            "Records & achievements",
+                            matches!(self.page, Page::Journey),
+                        ),
+                    );
+                    if matches!(self.page, Page::Journey)
+                        && self.pending_page_focus == Some(FocusTarget::JourneyEntry)
+                    {
+                        response.request_focus();
+                        self.pending_page_focus = None;
+                    }
+                    if response.clicked() {
+                        open_journey = true;
                     }
                     ui.add_space(14.0);
                     for level in &self.course.meta.levels {
@@ -562,7 +683,9 @@ impl FrenchApp {
                     });
         });
 
-        if go_home {
+        if open_journey {
+            self.open_journey();
+        } else if go_home {
             self.return_home();
         }
         if let Some(level) = scroll_level {
@@ -600,10 +723,25 @@ impl FrenchApp {
         let banner = level_images.get(&1).and_then(Option::as_ref);
         let course = &self.course;
         let progress = &self.progress;
+        let today = self.today.clone();
         let next_index = self.next_index();
         let done = progress.completed_count(course);
+        let current_streak = today
+            .as_deref()
+            .map(|today| progress.current_streak(today))
+            .unwrap_or(0);
+        let streak_summary = match current_streak {
+            0 => "Ready for day one".to_owned(),
+            1 => "1-day streak".to_owned(),
+            days => format!("{days}-day streak"),
+        };
+        let earned_achievements = achievement_cards(course, progress)
+            .iter()
+            .filter(|achievement| achievement.unlocked)
+            .count();
         let focus_home_entry = self.pending_page_focus == Some(FocusTarget::HomeEntry);
         let mut focused_home_entry = false;
+        let mut open_journey = false;
         let mut open_unit = None;
         let mut pending_scroll = self.pending_level_scroll.take();
 
@@ -680,6 +818,50 @@ impl FrenchApp {
                         0.70,
                     );
                 });
+
+                ui.add_space(12.0);
+                Frame::new()
+                    .fill(PALE_BLUE)
+                    .stroke(Stroke::new(1.0, Color32::from_rgb(212, 225, 244)))
+                    .corner_radius(CornerRadius::same(16))
+                    .inner_margin(Margin::same(16))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.vertical(|ui| {
+                                ui.label(
+                                    RichText::new("YOUR LEARNING RECORD")
+                                        .size(9.0)
+                                        .strong()
+                                        .color(BLUE),
+                                );
+                                ui.add_space(3.0);
+                                ui.label(
+                                    RichText::new(format!(
+                                        "{streak_summary}  ·  {} study days  ·  {earned_achievements} achievements",
+                                        progress.study_days.len()
+                                    ))
+                                    .size(13.0)
+                                    .strong()
+                                    .color(NAVY),
+                                );
+                                ui.label(
+                                    RichText::new("Opening a lesson marks today as a study day.")
+                                        .size(11.0)
+                                        .color(MUTED),
+                                );
+                            });
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                ui.horizontal_wrapped(|ui| {
+                                    if ui
+                                        .add(action_button("View milestones  →", true))
+                                        .clicked()
+                                    {
+                                        open_journey = true;
+                                    }
+                                });
+                            });
+                        });
+                    });
 
                 ui.add_space(30.0);
                 ui.horizontal(|ui| {
@@ -840,6 +1022,9 @@ impl FrenchApp {
         if focused_home_entry {
             self.pending_page_focus = None;
         }
+        if open_journey {
+            self.open_journey();
+        }
         match open_unit {
             Some(index) if index == usize::MAX => self.open_video("bienvenue.mp4"),
             Some(index) if index == usize::MAX - 1 => self.open_video("au-cafe.mp4"),
@@ -849,6 +1034,304 @@ impl FrenchApp {
             Some(index) if index == usize::MAX - 5 => self.reveal_course_file(),
             Some(index) => self.open_unit(index),
             None => {}
+        }
+    }
+
+    fn show_journey(&mut self, ui: &mut egui::Ui) {
+        let today = self.today.clone();
+        let current_streak = today
+            .as_deref()
+            .map(|today| self.progress.current_streak(today))
+            .unwrap_or(0);
+        let longest_streak = self.progress.longest_streak();
+        let completed = self.done_count() as u32;
+        let total = self.course.units.len() as u32;
+        let attempts = self.progress.quiz_history.len() as u32;
+        let best_score = self.progress.scores.values().copied().max().unwrap_or(0);
+        let milestones = milestone_cards(&self.course, &self.progress);
+        let achievements = achievement_cards(&self.course, &self.progress);
+        let recent_days = today
+            .as_deref()
+            .map(|today| self.progress.recent_study_days(today))
+            .unwrap_or_default();
+        let recent_quizzes: Vec<QuizAttempt> = self
+            .progress
+            .quiz_history
+            .iter()
+            .rev()
+            .take(6)
+            .cloned()
+            .collect();
+        let mut recent_completions: Vec<(String, String)> = self
+            .progress
+            .completed_on
+            .iter()
+            .filter(|(unit_id, _)| self.progress.is_complete(unit_id))
+            .filter_map(|(unit_id, date)| {
+                self.course
+                    .units
+                    .iter()
+                    .find(|unit| unit.id == *unit_id)
+                    .map(|unit| (unit.title.clone(), date.clone()))
+            })
+            .collect();
+        recent_completions.sort_by(|left, right| right.1.cmp(&left.1));
+        recent_completions.truncate(5);
+        let focus_entry = self.pending_page_focus == Some(FocusTarget::JourneyEntry);
+        let mut focused_entry = false;
+
+        ScrollArea::vertical()
+            .id_salt("learning-record-scroll")
+            .show(ui, |ui| {
+                ui.add_space(24.0);
+                let heading = ui.add(
+                    Label::new(
+                        RichText::new("Your learning record")
+                            .size(28.0)
+                            .strong()
+                            .color(NAVY),
+                    )
+                    .sense(Sense::focusable_noninteractive()),
+                );
+                if focus_entry {
+                    heading.request_focus();
+                    focused_entry = true;
+                }
+                ui.label(
+                    RichText::new(
+                        "A clear record of your practice, progress, and the milestones you earn along the way.",
+                    )
+                    .size(13.0)
+                    .color(MUTED),
+                );
+                ui.add_space(18.0);
+
+                Frame::new()
+                    .fill(NAVY)
+                    .corner_radius(CornerRadius::same(20))
+                    .inner_margin(Margin::same(22))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.vertical(|ui| {
+                                ui.label(
+                                    RichText::new("KEEP YOUR RHYTHM")
+                                        .size(9.0)
+                                        .strong()
+                                        .color(Color32::from_rgb(173, 207, 246)),
+                                );
+                                ui.add_space(5.0);
+                                ui.label(
+                                    RichText::new(match current_streak {
+                                        0 => "Your next study day starts a new streak.".to_owned(),
+                                        1 => "One day at a time. You're on a roll!".to_owned(),
+                                        count => format!("{count} days in a row. Keep it going!"),
+                                    })
+                                    .size(19.0)
+                                    .strong()
+                                    .color(WHITE),
+                                );
+                                ui.label(
+                                    RichText::new(format!(
+                                        "Personal best: {longest_streak} consecutive days  ·  Best quiz score: {best_score}%"
+                                    ))
+                                    .size(12.0)
+                                    .color(Color32::from_rgb(224, 231, 243)),
+                                );
+                            });
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                Frame::new()
+                                    .fill(Color32::from_rgb(47, 78, 96))
+                                    .corner_radius(CornerRadius::same(16))
+                                    .inner_margin(Margin::symmetric(20, 13))
+                                    .show(ui, |ui| {
+                                        ui.vertical_centered(|ui| {
+                                            ui.label(
+                                                RichText::new(format!("{current_streak}"))
+                                                    .size(30.0)
+                                                    .strong()
+                                                    .color(Color32::from_rgb(144, 225, 206)),
+                                            );
+                                            ui.label(
+                                                RichText::new("DAY STREAK")
+                                                    .size(9.0)
+                                                    .strong()
+                                                    .color(WHITE),
+                                            );
+                                        });
+                                    });
+                            });
+                        });
+                    });
+
+                ui.add_space(14.0);
+                ui.columns(4, |columns| {
+                    journey_stat_card(
+                        &mut columns[0],
+                        "STUDY DAYS",
+                        self.progress.study_days.len().to_string(),
+                        "unique days",
+                    );
+                    journey_stat_card(
+                        &mut columns[1],
+                        "LONGEST STREAK",
+                        format!("{longest_streak} days"),
+                        "personal best",
+                    );
+                    journey_stat_card(
+                        &mut columns[2],
+                        "QUIZZES FINISHED",
+                        attempts.to_string(),
+                        "all attempts kept",
+                    );
+                    journey_stat_card(
+                        &mut columns[3],
+                        "LESSONS PASSED",
+                        format!("{completed} / {total}"),
+                        "course progress",
+                    );
+                });
+
+                ui.add_space(26.0);
+                section_heading(ui, "Your last 7 days", "A study day is recorded when you open a lesson".to_owned());
+                ui.add_space(10.0);
+                if recent_days.is_empty() {
+                    empty_state(ui, "Study dates will appear here when you open a lesson.");
+                } else {
+                    ui.columns(7, |columns| {
+                        for (column, day) in columns.iter_mut().zip(&recent_days) {
+                            let fill = if day.active { PALE_GREEN } else { WHITE };
+                            let edge = if day.is_today {
+                                TEAL
+                            } else if day.active {
+                                Color32::from_rgb(193, 225, 200)
+                            } else {
+                                BORDER
+                            };
+                            Frame::new()
+                                .fill(fill)
+                                .stroke(Stroke::new(if day.is_today { 1.5 } else { 1.0 }, edge))
+                                .corner_radius(CornerRadius::same(12))
+                                .inner_margin(Margin::symmetric(4, 10))
+                                .show(column, |ui| {
+                                    ui.vertical_centered(|ui| {
+                                        ui.label(
+                                            RichText::new(day.weekday)
+                                                .size(10.0)
+                                                .strong()
+                                                .color(MUTED),
+                                        );
+                                        ui.label(
+                                            RichText::new(format!("{}", day.day_number))
+                                                .size(17.0)
+                                                .strong()
+                                                .color(if day.active { GREEN } else { NAVY }),
+                                        );
+                                        ui.label(
+                                            RichText::new(if day.active { "●" } else { "·" })
+                                                .size(12.0)
+                                                .color(if day.active { GREEN } else { MUTED }),
+                                        );
+                                    });
+                                });
+                        }
+                    });
+                }
+
+                ui.add_space(26.0);
+                section_heading(
+                    ui,
+                    "Milestones",
+                    "Course goals, one step at a time".to_owned(),
+                );
+                ui.add_space(10.0);
+                ui.columns(2, |columns| {
+                    for (index, milestone) in milestones.iter().enumerate() {
+                        journey_milestone_card(&mut columns[index % 2], milestone);
+                    }
+                });
+
+                ui.add_space(26.0);
+                section_heading(
+                    ui,
+                    "Achievements",
+                    format!(
+                        "{} of {} earned",
+                        achievements.iter().filter(|badge| badge.unlocked).count(),
+                        achievements.len()
+                    ),
+                );
+                ui.add_space(10.0);
+                ui.columns(2, |columns| {
+                    for (index, achievement) in achievements.iter().enumerate() {
+                        achievement_card(&mut columns[index % 2], achievement);
+                    }
+                });
+                ui.label(
+                    RichText::new(
+                        "Older imported completions count toward course milestones. Study-day and quiz history begins in the native app.",
+                    )
+                    .size(11.0)
+                    .color(MUTED),
+                );
+
+                ui.add_space(26.0);
+                ui.columns(2, |columns| {
+                    section_heading(
+                        &mut columns[0],
+                        "Recent completions",
+                        "Most recent first".to_owned(),
+                    );
+                    section_heading(
+                        &mut columns[1],
+                        "Recent quiz attempts",
+                        format!("{} total", attempts),
+                    );
+                    columns[0].add_space(10.0);
+                    columns[1].add_space(10.0);
+                    if recent_completions.is_empty() {
+                        empty_state(
+                            &mut columns[0],
+                            "Pass a quiz in the native app to add a dated completion record.",
+                        );
+                    } else {
+                        for (title, date) in &recent_completions {
+                            record_row(&mut columns[0], title, date, "PASSED", GREEN);
+                        }
+                    }
+                    if recent_quizzes.is_empty() {
+                        empty_state(
+                            &mut columns[1],
+                            "Finished quiz attempts and scores will be saved here.",
+                        );
+                    } else {
+                        for attempt in &recent_quizzes {
+                            let title = self
+                                .course
+                                .units
+                                .iter()
+                                .find(|unit| unit.id == attempt.unit_id)
+                                .map(|unit| unit.title.as_str())
+                                .unwrap_or(attempt.unit_id.as_str());
+                            let result = format!(
+                                "{}% {}",
+                                attempt.score,
+                                if attempt.passed { "PASS" } else { "RETRY" }
+                            );
+                            record_row(
+                                &mut columns[1],
+                                title,
+                                attempt.date.as_deref().unwrap_or("Date unavailable"),
+                                &result,
+                                if attempt.passed { GREEN } else { CORAL },
+                            );
+                        }
+                    }
+                });
+                ui.add_space(28.0);
+            });
+
+        if focused_entry {
+            self.pending_page_focus = None;
         }
     }
 
@@ -1200,7 +1683,7 @@ impl FrenchApp {
         }
         if let Some((score, passed)) = result_to_save {
             match self.persist_quiz_result(&unit.id, score, passed) {
-                Ok(()) => {
+                Ok(recognition) => {
                     if let Some(session) = self.quiz.as_mut() {
                         session.saved = true;
                         session.save_error = None;
@@ -1209,14 +1692,16 @@ impl FrenchApp {
                         }
                     }
                     self.progress_load_error = false;
-                    self.set_notice(
-                        if passed {
-                            format!("Unit complete — {score}%! The next lesson is unlocked.")
-                        } else {
-                            format!("Saved your {score}% score. Try again when you’re ready.")
-                        },
-                        passed,
-                    );
+                    let result_message = if passed {
+                        format!("Unit complete — {score}%! The next lesson is unlocked.")
+                    } else {
+                        format!("Saved your {score}% score. Try again when you’re ready.")
+                    };
+                    let celebration = recognition.is_some();
+                    let message = recognition
+                        .map(|recognition| format!("{recognition}  {result_message}"))
+                        .unwrap_or(result_message);
+                    self.set_notice(message, passed || celebration);
                 }
                 Err(error) => {
                     if let Some(session) = self.quiz.as_mut() {
@@ -1256,6 +1741,7 @@ impl FrenchApp {
 
 impl eframe::App for FrenchApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        self.refresh_today();
         ui.style_mut().spacing.item_spacing = Vec2::new(10.0, 10.0);
         ui.style_mut().spacing.button_padding = Vec2::new(15.0, 9.0);
         let ctx = ui.ctx().clone();
@@ -1292,6 +1778,7 @@ impl eframe::App for FrenchApp {
                 }
                 match self.page {
                     Page::Home => self.show_home(ui, &ctx),
+                    Page::Journey => self.show_journey(ui),
                     Page::Lesson(index) => self.show_lesson(ui, &ctx, index),
                 }
             });
@@ -1794,6 +2281,297 @@ fn section_heading(ui: &mut egui::Ui, title: &str, detail: String) {
             ui.label(RichText::new(detail).size(11.0).color(MUTED));
         });
     });
+}
+
+fn milestone_cards(course: &Course, progress: &Progress) -> Vec<JourneyCardInfo> {
+    let total = course.units.len() as u32;
+    let completed = progress.completed_count(course) as u32;
+    let mut cards = Vec::new();
+    let mut push =
+        |title: String, detail: String, current: u32, target: u32, icon: &'static str| {
+            if target > 0 {
+                cards.push(JourneyCardInfo {
+                    title,
+                    detail,
+                    icon,
+                    current: current.min(target),
+                    target,
+                    unlocked: current >= target,
+                });
+            }
+        };
+
+    push(
+        "First step".to_owned(),
+        "Pass your first lesson quiz".to_owned(),
+        completed,
+        1.min(total),
+        "↗",
+    );
+    if total >= 5 {
+        push(
+            "Five lessons".to_owned(),
+            "Build a strong foundation".to_owned(),
+            completed,
+            5,
+            "✦",
+        );
+    }
+
+    let level_one_total = course.units.iter().filter(|unit| unit.level == 1).count() as u32;
+    if level_one_total > 0 {
+        let level_one_done = course
+            .units
+            .iter()
+            .filter(|unit| unit.level == 1 && progress.is_complete(&unit.id))
+            .count() as u32;
+        push(
+            "A1 foundations".to_owned(),
+            "Complete every Niveau 1 lesson".to_owned(),
+            level_one_done,
+            level_one_total,
+            "◆",
+        );
+    }
+
+    let first_two_levels: Vec<&Unit> = course.units.iter().filter(|unit| unit.level <= 2).collect();
+    let first_two_total = first_two_levels.len() as u32;
+    if first_two_total > level_one_total {
+        let first_two_done = first_two_levels
+            .iter()
+            .filter(|unit| progress.is_complete(&unit.id))
+            .count() as u32;
+        push(
+            "A2 autonomy".to_owned(),
+            "Finish the beginner and independent levels".to_owned(),
+            first_two_done,
+            first_two_total,
+            "◆",
+        );
+    }
+
+    push(
+        "Full course complete".to_owned(),
+        "Complete the TEF learning path".to_owned(),
+        completed,
+        total,
+        "★",
+    );
+    cards
+}
+
+fn achievement_cards(course: &Course, progress: &Progress) -> Vec<JourneyCardInfo> {
+    let attempts = progress.quiz_history.len() as u32;
+    let best_score = progress.scores.values().copied().max().unwrap_or(0);
+    let longest_streak = progress.longest_streak();
+    let study_days = progress.study_days.len() as u32;
+    let completed = progress.completed_count(course) as u32;
+    let total = course.units.len() as u32;
+
+    vec![
+        achievement_info(
+            "Quiz starter",
+            "Finish your first quiz".to_owned(),
+            attempts,
+            1,
+            "✓",
+        ),
+        achievement_info(
+            "Quiz regular",
+            "Finish 10 quiz attempts".to_owned(),
+            attempts,
+            10,
+            "✦",
+        ),
+        achievement_info(
+            "Perfect score",
+            "Earn 100% on any quiz".to_owned(),
+            best_score,
+            100,
+            "★",
+        ),
+        achievement_info(
+            "Three-day rhythm",
+            "Study on three consecutive days".to_owned(),
+            longest_streak,
+            3,
+            "↗",
+        ),
+        achievement_info(
+            "A week of French",
+            "Study on seven different days".to_owned(),
+            study_days,
+            7,
+            "◆",
+        ),
+        achievement_info(
+            "Course finisher",
+            "Complete every lesson in the course".to_owned(),
+            completed,
+            total,
+            "★",
+        ),
+    ]
+}
+
+fn achievement_info(
+    title: &str,
+    detail: String,
+    current: u32,
+    target: u32,
+    icon: &'static str,
+) -> JourneyCardInfo {
+    JourneyCardInfo {
+        title: title.to_owned(),
+        detail,
+        icon,
+        current: current.min(target),
+        target,
+        unlocked: current >= target,
+    }
+}
+
+fn journey_stat_card(ui: &mut egui::Ui, kicker: &str, value: String, detail: &str) {
+    Frame::new()
+        .fill(WHITE)
+        .stroke(Stroke::new(1.0, BORDER))
+        .corner_radius(CornerRadius::same(14))
+        .inner_margin(Margin::same(13))
+        .show(ui, |ui| {
+            ui.set_min_height(82.0);
+            ui.label(RichText::new(kicker).size(9.0).strong().color(MUTED));
+            ui.add_space(3.0);
+            ui.label(RichText::new(value).size(18.0).strong().color(NAVY));
+            ui.label(RichText::new(detail).size(10.5).color(MUTED));
+        });
+}
+
+fn journey_milestone_card(ui: &mut egui::Ui, info: &JourneyCardInfo) {
+    Frame::new()
+        .fill(if info.unlocked { PALE_GREEN } else { WHITE })
+        .stroke(Stroke::new(
+            1.0,
+            if info.unlocked {
+                Color32::from_rgb(193, 225, 200)
+            } else {
+                BORDER
+            },
+        ))
+        .corner_radius(CornerRadius::same(14))
+        .inner_margin(Margin::same(14))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(info.icon)
+                        .size(19.0)
+                        .strong()
+                        .color(if info.unlocked { GREEN } else { BLUE }),
+                );
+                ui.vertical(|ui| {
+                    ui.label(RichText::new(&info.title).size(13.0).strong().color(NAVY));
+                    ui.label(RichText::new(&info.detail).size(11.0).color(MUTED));
+                });
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    ui.label(
+                        RichText::new(if info.unlocked {
+                            "✓ DONE"
+                        } else {
+                            "IN PROGRESS"
+                        })
+                        .size(8.5)
+                        .strong()
+                        .color(if info.unlocked { GREEN } else { BLUE }),
+                    );
+                });
+            });
+            ui.add_space(8.0);
+            progress_track(
+                ui,
+                info.current as f32 / info.target.max(1) as f32,
+                5.0,
+                ui.available_width(),
+                if info.unlocked { GREEN } else { TEAL },
+            );
+            ui.label(
+                RichText::new(format!("{} / {} lessons", info.current, info.target))
+                    .size(10.0)
+                    .color(MUTED),
+            );
+        });
+    ui.add_space(8.0);
+}
+
+fn achievement_card(ui: &mut egui::Ui, info: &JourneyCardInfo) {
+    Frame::new()
+        .fill(if info.unlocked { PALE_GREEN } else { WHITE })
+        .stroke(Stroke::new(
+            1.0,
+            if info.unlocked {
+                Color32::from_rgb(193, 225, 200)
+            } else {
+                BORDER
+            },
+        ))
+        .corner_radius(CornerRadius::same(14))
+        .inner_margin(Margin::same(14))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(info.icon)
+                        .size(22.0)
+                        .strong()
+                        .color(if info.unlocked { GREEN } else { MUTED }),
+                );
+                ui.vertical(|ui| {
+                    ui.label(RichText::new(&info.title).size(13.0).strong().color(NAVY));
+                    ui.label(RichText::new(&info.detail).size(11.0).color(MUTED));
+                });
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    ui.label(
+                        RichText::new(if info.unlocked { "EARNED" } else { "LOCKED" })
+                            .size(8.5)
+                            .strong()
+                            .color(if info.unlocked { GREEN } else { MUTED }),
+                    );
+                });
+            });
+            if !info.unlocked {
+                ui.add_space(8.0);
+                progress_track(
+                    ui,
+                    info.current as f32 / info.target.max(1) as f32,
+                    4.0,
+                    ui.available_width(),
+                    TEAL,
+                );
+                ui.label(
+                    RichText::new(format!("{} / {}", info.current, info.target))
+                        .size(10.0)
+                        .color(MUTED),
+                );
+            }
+        });
+    ui.add_space(8.0);
+}
+
+fn record_row(ui: &mut egui::Ui, title: &str, date: &str, result: &str, color: Color32) {
+    Frame::new()
+        .fill(WHITE)
+        .stroke(Stroke::new(1.0, BORDER))
+        .corner_radius(CornerRadius::same(11))
+        .inner_margin(Margin::symmetric(12, 9))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.label(RichText::new(title).size(11.5).strong().color(NAVY));
+                    ui.label(RichText::new(date).size(10.0).color(MUTED));
+                });
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    ui.label(RichText::new(result).size(9.0).strong().color(color));
+                });
+            });
+        });
+    ui.add_space(6.0);
 }
 
 fn quiz_question_card(

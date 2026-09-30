@@ -10,8 +10,11 @@ Requires an Apple Silicon Mac running macOS 11 or later.
 
 Open `FrenchApp.app`. The Rust app presents the 25 lessons in a focused native
 window, with guided lesson navigation, vocabulary and phrase audio, slow
-playback, quizzes, progress tracking, and a responsive home screen. Lesson
-progress is saved to
+playback, quizzes, a learning record with study streaks and dated quiz history,
+milestones, achievements, and a responsive home screen. Opening a lesson records
+a local study day; each finished quiz adds a dated score record. Older imported
+lesson completions count toward course milestones, while day and quiz history
+begins in the native app. Progress is saved to
 `~/Library/Application Support/FrenchApp/progress.json`.
 
 The two course videos open in the macOS default video player. The original
