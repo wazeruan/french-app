@@ -2,12 +2,15 @@
 
 A private, fully local French course for one learner: from complete beginner to the
 **TEF Canada / TCF Canada** immigration exam (target: CLB 7+ for CRS points).
-Taught in English. No accounts, no tracking, no internet needed — just open
-`index.html` in a browser.
+Taught in English. No accounts, no tracking, no internet needed. The recommended
+desktop experience is `../FrenchApp.app`; this folder also contains the classic
+browser edition.
 
 ## How to open it
 
-Double-click **`index.html`**. That's it. It opens in your browser and works fully offline.
+Double-click **`index.html`** to use the classic browser edition offline. Its
+progress is stored in that browser's local storage. Choose **Export backup** in
+the header to move it into the native app, then use **Import progress…** there.
 
 ## The course
 
@@ -38,25 +41,27 @@ the speaker — then compare.
 - **Images:** study illustrations (`images/`) — level banners plus scenes for
   family, food, café, town directions, work, travel, doctor, exam, speaking.
 - **Videos:** `videos/bienvenue.mp4` (course welcome) and
-  `videos/au-cafe.mp4` (café dialogue) — French voiceover included. Shadow them:
-  pause, repeat out loud, imitate the rhythm.
+  `videos/au-cafe.mp4` (café dialogue) — French voiceover included. The native
+  app opens them in macOS's default video player. Shadow them: pause, repeat out
+  loud, imitate the rhythm.
 
 ## Files
 
 - `index.html` — app entry point (open this)
 - `styles.css` — styling
 - `app.js` — app logic
-- `course.js` — built course data (generated from `levels/` — don't edit by hand)
-- `levels/n1.js`, `levels/n2.js`, `levels/n3.js` — course content source
-- `tools/build-course.js` — rebuilds `course.js` with validation
-  (`node tools/build-course.js`)
-- `tools/gen-audio.py` — regenerates audio from the content files
+- `course.js` — course data loaded by the browser app
+- `levels/n1.js`, `levels/n2.js`, `levels/n3.js` — legacy level source modules
+- `tools/export-course-json.js` — converts `course.js` to the native app's
+  `course.json` (`node tools/export-course-json.js`)
 - `audio/`, `images/`, `videos/` — media assets
 
 ## Rebuilding
 
-After editing anything in `levels/`, run `node tools/build-course.js` to
-regenerate `course.js` (it validates audio ids, quiz structure, and content
-fields). Then refresh the browser.
+The browser app reads `course.js` directly. After updating it, run
+`node tools/export-course-json.js` to refresh the native app data. The previous
+`tools/build-course.js` and audio-generation scripts are not included in this
+checkout, so changes in `levels/` do not regenerate `course.js` automatically.
+Refresh the browser after editing `course.js`.
 
 *Bonne chance — et amusez-vous bien !* 🎉

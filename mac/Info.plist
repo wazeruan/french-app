@@ -3,15 +3,15 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>FrenchApp</string>
+    <string>Français Pas à Pas</string>
     <key>CFBundleDisplayName</key>
     <string>Français Pas à Pas</string>
     <key>CFBundleIdentifier</key>
     <string>com.frenchapp.course</string>
     <key>CFBundleVersion</key>
-    <string>1.0</string>
+    <string>2.0</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>2.0</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>
@@ -21,6 +21,6 @@
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>LSMinimumSystemVersion</key>
-    <string>10.13</string>
+    <string>11.0</string>
 </dict>
 </plist>

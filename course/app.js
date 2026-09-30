@@ -28,6 +28,17 @@
   function saveStore() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
   }
+  function exportProgress() {
+    var backup = JSON.stringify({ version: 1, completed: store.completed, scores: store.scores }, null, 2);
+    var url = URL.createObjectURL(new Blob([backup], { type: "application/json" }));
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = "francais-pas-a-pas-progress.json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
 
   /* ---------------- helpers ---------------- */
   function esc(s) {
@@ -478,6 +489,8 @@
       rt.classList.toggle("on", slowMode);
       rt.setAttribute("aria-pressed", slowMode ? "true" : "false");
     });
+    var exportButton = $("#exportProgress");
+    if (exportButton) exportButton.addEventListener("click", exportProgress);
     window.addEventListener("hashchange", routeFromHash);
     renderHome();
     routeFromHash();
