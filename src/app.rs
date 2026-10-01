@@ -1,4 +1,9 @@
-use crate::{audio::AudioEngine, model::*, store};
+use crate::{
+    audio::AudioEngine,
+    learning::{LearningState, word_key},
+    model::*,
+    store,
+};
 use eframe::egui::{
     self, Align, Align2, Button, Color32, CornerRadius, FontId, Frame, Image, Label, Layout,
     Margin, Panel, RichText, ScrollArea, Sense, Stroke, Vec2,
@@ -114,6 +119,10 @@ pub struct FrenchApp {
     notice: Option<(String, Instant, bool)>,
     notice_sticky: bool,
     progress_load_error: bool,
+    learning: LearningState,
+    learning_load_error: bool,
+    paused_quizzes: HashMap<usize, QuizSession>,
+    audio_active: bool,
 }
 
 impl FrenchApp {
@@ -133,6 +142,11 @@ impl FrenchApp {
         }
         let (progress, load_notice) = store::load_progress();
         let progress_load_error = load_notice.is_some();
+        let (learning, learning_notice) = store::load_learning();
+        let learning_load_error = learning_notice.is_some();
+        ctx.set_zoom_factor(learning.text_scale);
+        let load_notice = load_notice.or(learning_notice);
+        let slow_audio = learning.slow_audio;
         Ok(Self {
             course,
             progress,
@@ -143,13 +157,17 @@ impl FrenchApp {
             pending_page_focus: None,
             lesson_tab: LessonTab::Words,
             quiz: None,
-            slow_audio: false,
+            slow_audio,
             pending_level_scroll: None,
             textures: HashMap::new(),
             audio: AudioEngine::new(),
             notice: load_notice.map(|text| (text, Instant::now(), false)),
-            notice_sticky: progress_load_error,
+            notice_sticky: progress_load_error || learning_load_error,
             progress_load_error,
+            learning,
+            learning_load_error,
+            paused_quizzes: HashMap::new(),
+            audio_active: false,
         })
     }
 
@@ -243,29 +261,49 @@ impl FrenchApp {
             self.set_notice("Pass the previous quiz to unlock this lesson.", false);
             return;
         }
+        let unit_id = unit.id.clone();
         self.record_study_day();
         self.audio.stop();
         self.page = Page::Lesson(index);
         self.pending_page_focus = Some(FocusTarget::LessonEntry);
-        self.lesson_tab = LessonTab::Words;
-        self.quiz = None;
+        let mut learning = self.learning.clone();
+        let same_lesson = learning.last_unit.as_deref() == Some(&unit_id);
+        learning.last_unit = Some(unit_id);
+        if !same_lesson {
+            learning.last_section = 0;
+        }
+        self.lesson_tab = LessonTab::ALL[learning.last_section.min(4)];
+        if self
+            .quiz
+            .as_ref()
+            .is_some_and(|quiz| quiz.unit_index != index)
+        {
+            if let Some(quiz) = self.quiz.take() {
+                self.paused_quizzes.insert(quiz.unit_index, quiz);
+            }
+        }
+        if self.quiz.is_none() {
+            self.quiz = self.paused_quizzes.remove(&index);
+        }
+        self.save_learning(learning);
     }
 
     fn return_home(&mut self) {
         self.audio.stop();
         self.page = Page::Home;
         self.pending_page_focus = Some(FocusTarget::HomeEntry);
-        self.quiz = None;
     }
 
     fn open_journey(&mut self) {
         self.audio.stop();
         self.page = Page::Journey;
         self.pending_page_focus = Some(FocusTarget::JourneyEntry);
-        self.quiz = None;
     }
 
     fn set_notice(&mut self, message: impl Into<String>, success: bool) {
+        if self.notice_sticky {
+            return;
+        }
         self.notice = Some((message.into(), Instant::now(), success));
         self.notice_sticky = false;
     }
@@ -273,6 +311,19 @@ impl FrenchApp {
     fn set_sticky_notice(&mut self, message: impl Into<String>) {
         self.notice = Some((message.into(), Instant::now(), false));
         self.notice_sticky = true;
+    }
+
+    fn save_learning(&mut self, learning: LearningState) -> bool {
+        match store::save_learning(&learning) {
+            Ok(()) => {
+                self.learning = learning;
+                true
+            }
+            Err(error) => {
+                self.set_sticky_notice(error);
+                false
+            }
+        }
     }
 
     fn persist_quiz_result(
@@ -297,7 +348,7 @@ impl FrenchApp {
             &line.fr,
             self.slow_audio,
         ) {
-            Ok(()) => self.set_notice(format!("Playing: {}", line.fr), true),
+            Ok(()) => self.audio_active = true,
             Err(error) => self.set_notice(error, false),
         }
     }
@@ -307,7 +358,7 @@ impl FrenchApp {
             .audio
             .play(&self.resources, audio, text, self.slow_audio)
         {
-            Ok(()) => self.set_notice(format!("Playing: {text}"), true),
+            Ok(()) => self.audio_active = true,
             Err(error) => self.set_notice(error, false),
         }
     }
@@ -334,6 +385,13 @@ impl FrenchApp {
             .add_filter("French course backup", &["json"])
             .pick_file();
         let Some(path) = picked else { return };
+        let imported_learning = match store::import_learning(&path) {
+            Ok(learning) => learning,
+            Err(error) => {
+                self.set_sticky_notice(format!("Could not import review data: {error}"));
+                return;
+            }
+        };
         match store::import_progress(&path, &self.course) {
             Ok(imported) => {
                 let mut merged = self.progress.clone();
@@ -348,6 +406,27 @@ impl FrenchApp {
                         let count = merged.completed_count(&self.course);
                         self.progress = merged;
                         self.progress_load_error = false;
+                        if let Some(imported_learning) = imported_learning {
+                            let mut learning = self.learning.clone();
+                            learning.merge(imported_learning);
+                            let result = if self.learning_load_error {
+                                store::recover_learning(&learning)
+                            } else {
+                                store::save_learning(&learning)
+                            };
+                            if let Err(error) = result {
+                                self.set_sticky_notice(format!("Course progress imported; review data could not be restored. {error}"));
+                                return;
+                            }
+                            self.learning = learning;
+                            self.learning_load_error = false;
+                            self.slow_audio = self.learning.slow_audio;
+                        }
+                        if self.learning_load_error {
+                            self.set_sticky_notice("Course progress imported. Your review deck remains unreadable; use a full native app backup to recover it.");
+                            return;
+                        }
+                        self.notice_sticky = false;
                         self.set_notice(
                             if let Some(backup) = backup {
                                 format!(
@@ -362,6 +441,27 @@ impl FrenchApp {
                     }
                     Err(error) => self.set_sticky_notice(error),
                 }
+            }
+            Err(error) => self.set_sticky_notice(error),
+        }
+    }
+
+    fn export_progress(&mut self) {
+        if self.progress_load_error || self.learning_load_error {
+            self.set_sticky_notice("Recover unreadable learning data before exporting a complete backup. Your original files are still preserved.");
+            return;
+        }
+        let Some(path) = rfd::FileDialog::new()
+            .add_filter("French app backup", &["json"])
+            .set_file_name("french-learning-backup.json")
+            .save_file()
+        else {
+            return;
+        };
+        match store::export_backup(&path, &self.progress, &self.learning) {
+            Ok(()) => {
+                self.notice_sticky = false;
+                self.set_notice("Backup exported: course progress, review deck, learning record, and preferences.", true);
             }
             Err(error) => self.set_sticky_notice(error),
         }
@@ -524,6 +624,10 @@ impl FrenchApp {
             });
 
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if self.audio_active && ui.add(action_button("Stop audio", false)).clicked() {
+                    self.audio.stop();
+                    self.audio_active = false;
+                }
                 if ui
                     .add(action_button(
                         if self.slow_audio {
@@ -571,7 +675,11 @@ impl FrenchApp {
             self.return_home();
         }
         if toggle_slow {
-            self.slow_audio = !self.slow_audio;
+            let mut learning = self.learning.clone();
+            learning.slow_audio = !self.slow_audio;
+            if self.save_learning(learning) {
+                self.slow_audio = self.learning.slow_audio;
+            }
         }
         if import {
             self.import_progress();
@@ -1649,6 +1757,7 @@ impl FrenchApp {
         }
         let mut result_to_save = None;
         if next_question {
+            self.audio.stop();
             if let Some(session) = self.quiz.as_mut() {
                 if session.question_index + 1 < unit.quiz.len() {
                     session.question_index += 1;
@@ -1686,6 +1795,9 @@ impl FrenchApp {
                         }
                     }
                     self.progress_load_error = false;
+                    if !self.learning_load_error {
+                        self.notice_sticky = false;
+                    }
                     let result_message = if passed {
                         format!("Unit complete — {score}%! The next lesson is unlocked.")
                     } else {
@@ -1737,6 +1849,16 @@ impl eframe::App for FrenchApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.refresh_today();
         let ctx = ui.ctx().clone();
+        match self.audio.is_playing() {
+            Ok(active) => self.audio_active = active,
+            Err(error) => {
+                self.audio_active = false;
+                self.set_notice(error, false);
+            }
+        }
+        if self.audio_active {
+            ctx.request_repaint_after(Duration::from_millis(100));
+        }
         Panel::top("app_header")
             .resizable(false)
             .frame(

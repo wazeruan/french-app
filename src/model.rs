@@ -341,7 +341,7 @@ impl Progress {
         });
     }
 
-    fn day_ordinal(date: &str) -> Option<i64> {
+    pub(crate) fn day_ordinal(date: &str) -> Option<i64> {
         let bytes = date.as_bytes();
         if bytes.len() != 10
             || bytes[4] != b'-'

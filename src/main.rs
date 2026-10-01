@@ -1,5 +1,6 @@
 mod app;
 mod audio;
+mod learning;
 mod model;
 mod store;
 

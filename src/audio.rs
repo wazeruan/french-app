@@ -33,6 +33,29 @@ impl AudioEngine {
         }
     }
 
+    pub fn is_playing(&mut self) -> Result<bool, String> {
+        if let Some(speech) = self.speech.as_mut() {
+            match speech.try_wait() {
+                Ok(Some(status)) => {
+                    self.speech = None;
+                    if !status.success() {
+                        return Err("The French voice could not finish playback. Try a recorded clip or check your macOS voices.".to_owned());
+                    }
+                }
+                Ok(None) => return Ok(true),
+                Err(error) => {
+                    self.stop();
+                    return Err(format!("Could not check voice playback: {error}"));
+                }
+            }
+        }
+        let playing = self.current.as_ref().is_some_and(|player| !player.empty());
+        if !playing {
+            self.current = None;
+        }
+        Ok(playing)
+    }
+
     pub fn play(
         &mut self,
         resources: &Path,
@@ -79,9 +102,11 @@ impl AudioEngine {
 
     fn play_speech(&mut self, french_text: &str, slow: bool) -> Result<(), String> {
         let mut command = Command::new("say");
-        if let Some(voice) = french_voice() {
-            command.arg("-v").arg(voice);
-        }
+        let voice = french_voice().ok_or_else(|| {
+            "No French voice is installed. Add a French voice in macOS Spoken Content settings."
+                .to_owned()
+        })?;
+        command.arg("-v").arg(voice);
         command
             .arg("-r")
             .arg(if slow { "125" } else { "185" })
