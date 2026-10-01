@@ -33,8 +33,6 @@ pub struct Unit {
     pub level: u32,
     pub title: String,
     pub title_fr: String,
-    pub icon: String,
-    pub color: String,
     #[serde(default)]
     pub objectives: Vec<String>,
     #[serde(default)]

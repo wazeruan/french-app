@@ -8,7 +8,7 @@ fn main() -> eframe::Result {
     let viewport = eframe::egui::ViewportBuilder::default()
         .with_title("Français Pas à Pas")
         .with_inner_size([1280.0, 860.0])
-        .with_min_inner_size([860.0, 640.0]);
+        .with_min_inner_size([780.0, 620.0]);
     let native_options = eframe::NativeOptions {
         viewport,
         ..Default::default()
